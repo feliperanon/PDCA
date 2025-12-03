@@ -1,10 +1,15 @@
 // src/App.jsx
-import { PdcaDashboardPage } from "./pages/PdcaDashboardPage";
+import React from "react";
+import { BrowserRouter } from "react-router-dom";
+import ReactApp from "./ReactApp.jsx";
+import { AuthProvider } from "./context/AuthContext.jsx";
 
 export default function App() {
   return (
-    <div className="min-h-screen bg-gray-100">
-      <PdcaDashboardPage />
-    </div>
+    <AuthProvider>
+      <BrowserRouter>
+        <ReactApp />
+      </BrowserRouter>
+    </AuthProvider>
   );
 }
