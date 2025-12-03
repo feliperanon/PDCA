@@ -1,0 +1,63 @@
+/* Header fixo, com logo em cima e menu centralizado embaixo */
+.app-header {
+  position: sticky;
+  top: 0;
+  z-index: 10;
+  display: flex;
+  flex-direction: column;        /* logo em cima, menu embaixo */
+  align-items: center;
+  justify-content: center;
+  gap: 8px;
+  padding: 10px 24px 14px;
+  background-color: rgba(255, 255, 255, 0.98);
+  border-bottom: 1px solid var(--color-border-subtle);
+  box-shadow: var(--shadow-soft);
+}
+
+/* Logo apenas com texto forte */
+.app-logo {
+  font-weight: 700;
+  font-size: var(--font-size-lg);
+  letter-spacing: 0.04em;
+}
+
+/* Menu centralizado em linha */
+.app-menu {
+  display: flex;
+  gap: 10px;
+  justify-content: center;
+  flex-wrap: wrap;
+}
+
+/* Botões do menu – estilo pill, moderno e claro */
+.app-menu-link {
+  font-size: var(--font-size-sm);
+  padding: 6px 16px;
+  border-radius: var(--radius-pill);
+  border: 1px solid transparent;
+  color: #4b5563;
+  background-color: #f3f4f6;
+  display: inline-flex;
+  align-items: center;
+  gap: 6px;
+  transition:
+    background-color var(--transition-fast),
+    border-color var(--transition-fast),
+    color var(--transition-fast),
+    transform var(--transition-fast),
+    box-shadow var(--transition-fast);
+}
+
+.app-menu-link:hover {
+  background-color: #e5e7eb;
+  border-color: var(--color-border-subtle);
+  box-shadow: var(--shadow-soft);
+  transform: translateY(-1px);
+}
+
+.app-menu-link-active {
+  background-color: var(--color-primary);
+  border-color: var(--color-primary);
+  color: #ffffff;
+  box-shadow: var(--shadow-soft);
+}

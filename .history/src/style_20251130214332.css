@@ -1,0 +1,57 @@
+body {
+  font-family: Arial, sans-serif;
+  max-width: 1000px;
+  margin: 20px auto;
+}
+
+.section {
+  border: 1px solid #ccc;
+  padding: 15px;
+  border-radius: 8px;
+  margin-bottom: 25px;
+  background-color: #fafafa;
+}
+
+h1 {
+  text-align: center;
+}
+
+h2 {
+  margin-top: 0;
+}
+
+h3 {
+  margin-top: 20px;
+}
+
+input,
+textarea,
+select {
+  width: 100%;
+  padding: 8px;
+  margin-top: 6px;
+  box-sizing: border-box;
+}
+
+button {
+  padding: 10px;
+  margin-top: 10px;
+  cursor: pointer;
+}
+
+.card {
+  border: 1px solid #999;
+  padding: 10px;
+  border-radius: 6px;
+  margin-bottom: 12px;
+  background-color: #fff;
+}
+
+.card:hover {
+  background-color: #f0f0f0;
+}
+
+#grafico-status {
+  max-width: 600px;
+  margin: 0 auto;
+}
