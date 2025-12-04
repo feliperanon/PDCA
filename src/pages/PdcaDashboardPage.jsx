@@ -246,44 +246,6 @@ export function PdcaDashboardPage() {
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState("");
 
-  // filtros salvos
-  const filtrosConfigurados = useMemo(
-    () => [
-      {
-        id: "todos",
-        label: "Todos os ativos",
-        descricao: "Todos os PDCAs ativos em todas as áreas.",
-        predicate: () => true,
-      },
-      {
-        id: "minha-area-expedicao",
-        label: "Minha área (Expedição)",
-        descricao: "Somente PDCAs da área de Expedição.",
-        predicate: (p) =>
-          (p.area || "").toLowerCase().includes("expedi"),
-      },
-      {
-        id: "criticos-hoje",
-        label: "Críticos hoje",
-        descricao:
-          "Prioridade Crítica/Alta com prazo vencendo hoje ou já vencido.",
-        predicate: (p) => {
-          const prioridade = (p.prioridade || "").toLowerCase();
-          if (!["crítica", "critica", "alta"].includes(prioridade)) {
-            return false;
-          }
-          if (!p.dataAlvo) return false;
-          const hoje = new Date();
-          const dataAlvoDate = new Date(p.dataAlvo + "T00:00:00");
-          return dataAlvoDate <= hoje;
-        },
-      },
-    ],
-    []
-  );
-
-  const [filtroAtivoId, setFiltroAtivoId] = useState("todos");
-
   useEffect(() => {
     async function load() {
       setLoading(true);
@@ -338,21 +300,13 @@ export function PdcaDashboardPage() {
     [pdcas]
   );
 
-  const pdcasFiltrados = useMemo(() => {
-    const filtro = filtrosConfigurados.find(
-      (f) => f.id === filtroAtivoId
-    );
-    if (!filtro) return pdcasAtivos;
-    return pdcasAtivos.filter(filtro.predicate);
-  }, [pdcasAtivos, filtroAtivoId, filtrosConfigurados]);
-
   const { planList, doList, checkList, actList } = useMemo(() => {
     const plan = [];
     const doStage = [];
     const check = [];
     const act = [];
 
-    pdcasFiltrados.forEach((p) => {
+    pdcasAtivos.forEach((p) => {
       const stage = getStageFromStatus(p.status);
       if (stage === "Plan") plan.push(p);
       if (stage === "Do") doStage.push(p);
@@ -361,7 +315,7 @@ export function PdcaDashboardPage() {
     });
 
     return { planList: plan, doList: doStage, checkList: check, actList: act };
-  }, [pdcasFiltrados]);
+  }, [pdcasAtivos]);
 
   if (loading) {
     return <div className="page">Carregando quadro de PDCAs...</div>;
@@ -375,41 +329,13 @@ export function PdcaDashboardPage() {
     );
   }
 
-  const filtroSelecionado =
-    filtrosConfigurados.find((f) => f.id === filtroAtivoId) ||
-    filtrosConfigurados[0];
-
   return (
     <div className="page">
       <h1 className="page-title">Dashboard de PDCAs por etapa</h1>
       <p className="page-subtitle">
-        Quadro em quatro colunas: Plan, Do, Check e Act. Use os filtros salvos
-        para mudar a visão da reunião.
+        Quadro em quatro colunas: Plan, Do, Check e Act, exibindo todos os
+        PDCAs ativos em todas as áreas.
       </p>
-
-      <section className="dashboard-filters">
-        <header className="dashboard-filters-header">
-          <h2>Filtros salvos</h2>
-          <p>{filtroSelecionado.descricao}</p>
-        </header>
-
-        <div className="dashboard-filters-buttons">
-          {filtrosConfigurados.map((filtro) => (
-            <button
-              key={filtro.id}
-              type="button"
-              onClick={() => setFiltroAtivoId(filtro.id)}
-              className={
-                filtroAtivoId === filtro.id
-                  ? "btn-chip btn-chip-active"
-                  : "btn-chip"
-              }
-            >
-              {filtro.label}
-            </button>
-          ))}
-        </div>
-      </section>
 
       <div className="board-grid">
         <BoardColumn title="Plan" stageKey="Plan" items={planList} />

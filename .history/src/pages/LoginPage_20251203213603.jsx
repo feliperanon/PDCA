@@ -19,9 +19,15 @@ export function LoginPage() {
     setSubmitting(true);
 
     try {
-      console.log("🔑 Chamando login(Context) com:", { email, password });
-      await login(email, password);
-      console.log("✅ Login OK, navegando para /");
+      console.log("🔑 Chamando login com:", { email, password });
+
+      // 👉 TESTE 1: por enquanto vamos SÓ logar e navegar,
+      // sem depender do login de verdade
+      // comente o login real para testar o fluxo:
+
+      // await login(email, password);
+
+      console.log("✅ (teste) Login 'falso' OK, navegando para /");
       navigate("/", { replace: true });
     } catch (err) {
       console.error("❌ Erro ao fazer login:", err);
@@ -33,9 +39,6 @@ export function LoginPage() {
         message = "Senha incorreta.";
       } else if (err.code === "auth/invalid-email") {
         message = "E-mail inválido.";
-      } else if (err.code === "auth/operation-not-allowed") {
-        message =
-          "Login com e-mail/senha não está habilitado no Firebase (console).";
       }
 
       setError(message);
@@ -53,15 +56,10 @@ export function LoginPage() {
     return (
       <div className="login-page">
         <div className="login-card">
-          <div className="login-card-header">
-            <h1>Você já está autenticado</h1>
-            <p className="login-subtitle">
-              Use o menu superior para navegar pelos PDCAs.
-            </p>
-          </div>
+          <h1>Você já está autenticado</h1>
           <button
             type="button"
-            className="btn-primary login-full-width"
+            className="btn-primary"
             onClick={() => navigate("/", { replace: true })}
           >
             Ir para o início
@@ -73,23 +71,8 @@ export function LoginPage() {
 
   return (
     <div className="login-page">
-      <div className="login-glow login-glow-1" />
-      <div className="login-glow login-glow-2" />
-
       <div className="login-card">
-        <div className="login-card-header">
-          <div className="login-brand">
-            <div className="login-brand-mark">PDCA NL</div>
-            <span className="login-brand-sub">
-              Painel de melhoria contínua da operação
-            </span>
-          </div>
-
-          <h1>Entrar no PDCA NL</h1>
-          <p className="login-subtitle">
-            Use seu e-mail corporativo para acessar seus projetos de melhoria.
-          </p>
-        </div>
+        <h1>Entrar no PDCA NL</h1>
 
         <form className="login-form" onSubmit={handleSubmit}>
           <label className="form-field">
@@ -120,16 +103,12 @@ export function LoginPage() {
 
           <button
             type="submit"
-            className="btn-primary login-full-width"
+            className="btn-primary"
             disabled={submitting}
           >
             {submitting ? "Entrando..." : "Entrar"}
           </button>
         </form>
-
-        <p className="login-hint">
-          Acesso restrito aos responsáveis pelos PDCAs da operação.
-        </p>
       </div>
     </div>
   );

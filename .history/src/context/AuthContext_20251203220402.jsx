@@ -83,7 +83,7 @@ export function AuthProvider({ children }) {
 
     console.log("✅ Firebase retornou credencial:", cred.user?.uid);
 
-    // Atualiza o estado imediatamente após login
+    // IMPORTANTE: atualiza o estado na hora
     setUser(cred.user);
 
     try {

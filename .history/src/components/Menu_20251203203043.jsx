@@ -16,22 +16,9 @@ export function Menu() {
     }
   };
 
-  const displayName = profile?.nome ?? user?.email ?? "Usuário";
-
-  const initials = displayName
-    .split(" ")
-    .map((p) => p[0])
-    .join("")
-    .slice(0, 2)
-    .toUpperCase();
-
   return (
     <nav className="app-menu">
-      {/* Espaçador à esquerda para ajudar a centralizar os links */}
-      <div className="app-menu-spacer" />
-
-      {/* Links do meio – ficam centralizados */}
-      <div className="app-menu-links">
+      <div className="app-menu-left">
         <NavLink
           to="/"
           className={({ isActive }) =>
@@ -70,27 +57,23 @@ export function Menu() {
         </NavLink>
       </div>
 
-      {/* Usuário + Sair, alinhado à direita */}
       <div className="app-menu-right">
-        {user ? (
+        {user && (
           <>
-            <div className="app-menu-user-wrapper">
-              <div className="app-menu-avatar">{initials}</div>
-              <div className="app-menu-user-text">
-                <span className="app-menu-user-name">{displayName}</span>
-                <span className="app-menu-user-role">Logística • NL</span>
-              </div>
-            </div>
-
+            <span className="app-menu-user">
+              {profile?.nome ?? user.email}
+            </span>
             <button
               type="button"
-              className="btn-secondary app-menu-logout"
+              className="btn-secondary"
               onClick={handleLogout}
             >
               Sair
             </button>
           </>
-        ) : (
+        )}
+
+        {!user && (
           <NavLink
             to="/login"
             className={({ isActive }) =>

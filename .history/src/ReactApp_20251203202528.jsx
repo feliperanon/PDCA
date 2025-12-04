@@ -44,12 +44,12 @@ export default function ReactApp() {
 
   return (
     <div className="app-root">
-      {/* Não mostra o menu na tela de login */}
+      {/* não mostra o Menu na tela de login */}
       {!isLoginPage && <Menu />}
 
       <main className="app-main">
         <Routes>
-          {/* Tela de login (sem proteção) */}
+          {/* Login (sem proteção) */}
           <Route path="/login" element={<LoginPage />} />
 
           {/* Rotas protegidas */}
@@ -98,7 +98,7 @@ export default function ReactApp() {
             }
           />
 
-          {/* Qualquer outra rota → redireciona pra Home */}
+          {/* qualquer coisa desconhecida → manda pra Home (protegida) */}
           <Route path="*" element={<Navigate to="/" replace />} />
         </Routes>
       </main>

@@ -13,6 +13,7 @@ import {
 } from "firebase/auth";
 import { doc, getDoc } from "firebase/firestore";
 
+// Valor padrão seguro (não quebra se o Provider não for usado por algum motivo)
 const defaultAuthValue = {
   user: null,
   profile: null,
@@ -30,9 +31,9 @@ const defaultAuthValue = {
 const AuthContext = createContext(defaultAuthValue);
 
 export function AuthProvider({ children }) {
-  const [user, setUser] = useState(null);
-  const [profile, setProfile] = useState(null);
-  const [loading, setLoading] = useState(true);
+  const [user, setUser] = useState(null);       // Usuário do Firebase Auth
+  const [profile, setProfile] = useState(null); // Doc em /users/{uid}
+  const [loading, setLoading] = useState(true); // Carregando auth inicial
 
   useEffect(() => {
     console.log("👀 Registrando onAuthStateChanged...");
@@ -78,29 +79,8 @@ export function AuthProvider({ children }) {
 
   const login = async (email, password) => {
     console.log("🔐 AuthContext.login chamado com:", email);
-
     const cred = await signInWithEmailAndPassword(auth, email, password);
-
     console.log("✅ Firebase retornou credencial:", cred.user?.uid);
-
-    // Atualiza o estado imediatamente após login
-    setUser(cred.user);
-
-    try {
-      const ref = doc(db, "users", cred.user.uid);
-      const snap = await getDoc(ref);
-
-      if (snap.exists()) {
-        console.log("📄 (login) Perfil carregado de /users:", snap.data());
-        setProfile(snap.data());
-      } else {
-        console.warn("⚠️ (login) Perfil não encontrado em /users.");
-        setProfile(null);
-      }
-    } catch (error) {
-      console.error("❌ (login) Erro ao carregar perfil:", error);
-    }
-
     return cred;
   };
 

@@ -13,6 +13,7 @@ import {
 } from "firebase/auth";
 import { doc, getDoc } from "firebase/firestore";
 
+// Valor padrão seguro (não quebra se o Provider não for usado por algum motivo)
 const defaultAuthValue = {
   user: null,
   profile: null,
@@ -30,25 +31,19 @@ const defaultAuthValue = {
 const AuthContext = createContext(defaultAuthValue);
 
 export function AuthProvider({ children }) {
-  const [user, setUser] = useState(null);
-  const [profile, setProfile] = useState(null);
-  const [loading, setLoading] = useState(true);
+  const [user, setUser] = useState(null);       // Usuário do Firebase Auth
+  const [profile, setProfile] = useState(null); // Doc em /users/{uid}
+  const [loading, setLoading] = useState(true); // Carregando auth inicial
 
   useEffect(() => {
-    console.log("👀 Registrando onAuthStateChanged...");
-
     const unsubscribe = onAuthStateChanged(auth, async (firebaseUser) => {
-      console.log("🔥 onAuthStateChanged disparou:", firebaseUser);
-
       if (!firebaseUser) {
-        console.log("⚪ Nenhum usuário logado.");
         setUser(null);
         setProfile(null);
         setLoading(false);
         return;
       }
 
-      console.log("🟢 Usuário logado no Firebase Auth:", firebaseUser.uid);
       setUser(firebaseUser);
 
       try {
@@ -56,60 +51,30 @@ export function AuthProvider({ children }) {
         const snap = await getDoc(ref);
 
         if (snap.exists()) {
-          console.log("📄 Perfil carregado de /users:", snap.data());
           setProfile(snap.data());
         } else {
-          console.warn("⚠️ Perfil não encontrado em /users para este usuário.");
+          console.warn("Perfil não encontrado em /users para este usuário.");
           setProfile(null);
         }
       } catch (error) {
-        console.error("❌ Erro ao carregar perfil do usuário:", error);
+        console.error("Erro ao carregar perfil do usuário:", error);
         setProfile(null);
       } finally {
         setLoading(false);
       }
     });
 
-    return () => {
-      console.log("👋 Limpando listener onAuthStateChanged");
-      unsubscribe();
-    };
+    return () => unsubscribe();
   }, []);
 
   const login = async (email, password) => {
-    console.log("🔐 AuthContext.login chamado com:", email);
-
-    const cred = await signInWithEmailAndPassword(auth, email, password);
-
-    console.log("✅ Firebase retornou credencial:", cred.user?.uid);
-
-    // Atualiza o estado imediatamente após login
-    setUser(cred.user);
-
-    try {
-      const ref = doc(db, "users", cred.user.uid);
-      const snap = await getDoc(ref);
-
-      if (snap.exists()) {
-        console.log("📄 (login) Perfil carregado de /users:", snap.data());
-        setProfile(snap.data());
-      } else {
-        console.warn("⚠️ (login) Perfil não encontrado em /users.");
-        setProfile(null);
-      }
-    } catch (error) {
-      console.error("❌ (login) Erro ao carregar perfil:", error);
-    }
-
-    return cred;
+    await signInWithEmailAndPassword(auth, email, password);
   };
 
   const logout = async () => {
-    console.log("🚪 Fazendo logout...");
     await signOut(auth);
     setUser(null);
     setProfile(null);
-    console.log("✅ Logout concluído");
   };
 
   const value = {
@@ -132,5 +97,6 @@ export function AuthProvider({ children }) {
 }
 
 export function useAuth() {
+  // Nunca será null (tem defaultAuthValue)
   return useContext(AuthContext);
 }

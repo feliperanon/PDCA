@@ -141,7 +141,7 @@ a {
   flex-direction: column;
 }
 
-/* Header com menu centralizado (versão base) */
+/* Header com menu centralizado */
 
 .app-header {
   position: sticky;
@@ -164,7 +164,7 @@ a {
   letter-spacing: 0.04em;
 }
 
-/* Menu topo centralizado (base antiga – parte do layout antigo) */
+/* Menu topo centralizado */
 
 .app-menu {
   display: flex;
@@ -939,7 +939,6 @@ textarea {
   padding: 0;
   overflow-y: auto;
 }
-
 /* GRID 2x2 no detalhe do PDCA */
 .detail-grid {
   display: grid;
@@ -997,8 +996,7 @@ textarea {
 .historico-table th {
   font-weight: 600;
 }
-
-/* MENU FIXO NO TOPO (ACOMPANHA SCROLL) - sobrescreve o app-menu base para histórico e outras telas */
+/* MENU FIXO NO TOPO (ACOMPANHA SCROLL) */
 .app-menu {
   position: sticky;
   top: 0;
@@ -1015,7 +1013,6 @@ textarea {
 .app-main {
   padding: 16px;
 }
-
 /* HISTÓRICO – LAYOUT GERAL */
 .historico-page {
   display: flex;
@@ -1167,36 +1164,8 @@ textarea {
     padding: 0;
   }
 }
-
 /* =========================
-   FORM FIELDS GENÉRICOS
-   ========================= */
-
-.form-field {
-  display: flex;
-  flex-direction: column;
-  gap: 4px;
-  margin-bottom: 10px;
-}
-
-.form-field span {
-  font-size: 13px;
-  font-weight: 500;
-  color: var(--color-text-muted);
-}
-
-.form-error {
-  margin: 4px 0 8px;
-  font-size: 13px;
-  color: var(--color-error-text);
-  background-color: var(--color-error-bg);
-  border: 1px solid var(--color-error-border);
-  border-radius: 6px;
-  padding: 6px 8px;
-}
-
-/* =========================
-   TELA DE LOGIN (SEM FUNDO AZUL)
+   TELA DE LOGIN
    ========================= */
 
 .login-page {
@@ -1207,14 +1176,63 @@ textarea {
   padding: 24px 16px;
   position: relative;
   overflow: hidden;
-  background: linear-gradient(
-    to bottom,
-    var(--color-body-bg),
-    var(--color-body-bg-soft)
-  );
+  background: radial-gradient(circle at top left,
+      rgba(37, 99, 235, 0.18),
+      transparent 55%)
+    ,
+    radial-gradient(circle at bottom right,
+      rgba(56, 189, 248, 0.18),
+      transparent 55%)
+    ,
+    linear-gradient(
+      to bottom,
+      var(--color-body-bg),
+      var(--color-body-bg-soft)
+    );
 }
 
-/* sem glows, sem fundos azuis extras */
+/* brilhos de fundo */
+.login-glow {
+  position: absolute;
+  width: 320px;
+  height: 320px;
+  border-radius: 999px;
+  filter: blur(60px);
+  opacity: 0.6;
+  pointer-events: none;
+}
+
+.login-glow-1 {
+  background: rgba(37, 99, 235, 0.6);
+  top: -80px;
+  left: -80px;
+  animation: loginGlowMove1 18s ease-in-out infinite alternate;
+}
+
+.login-glow-2 {
+  background: rgba(45, 212, 191, 0.5);
+  bottom: -80px;
+  right: -80px;
+  animation: loginGlowMove2 20s ease-in-out infinite alternate;
+}
+
+@keyframes loginGlowMove1 {
+  0% {
+    transform: translate(0, 0);
+  }
+  100% {
+    transform: translate(40px, 40px);
+  }
+}
+
+@keyframes loginGlowMove2 {
+  0% {
+    transform: translate(0, 0);
+  }
+  100% {
+    transform: translate(-40px, -30px);
+  }
+}
 
 /* card principal do login */
 .login-card {
@@ -1311,407 +1329,4 @@ textarea {
   font-size: 11px;
   color: var(--color-text-soft);
   text-align: center;
-}
-/* =========================
-   BARRA SUPERIOR – DARK BLUE
-   ========================= */
-
-.app-menu {
-  position: sticky;
-  top: 0;
-  z-index: 50;
-  width: 100%;
-  display: flex;
-  align-items: center;
-  justify-content: space-between;
-  gap: 16px;
-  padding: 10px 20px;
-  background: radial-gradient(circle at top left, #1d4ed8 0, #0b1120 55%)
-      ,
-      radial-gradient(circle at bottom right, #22c55e33 0, transparent 55%)
-      ,
-      #020617;
-  color: #e5e7eb;
-  box-shadow: 0 10px 25px rgba(15, 23, 42, 0.45);
-  border-bottom: 1px solid rgba(148, 163, 184, 0.4);
-  backdrop-filter: blur(8px);
-}
-
-/* lado esquerdo: brand + links */
-.app-menu-left {
-  display: flex;
-  align-items: center;
-  gap: 20px;
-  min-width: 0;
-}
-
-/* marca PDCA NL */
-.app-menu-brand {
-  display: flex;
-  flex-direction: column;
-  gap: 2px;
-}
-
-.app-menu-brand-mark {
-  font-size: 11px;
-  font-weight: 700;
-  letter-spacing: 0.15em;
-  text-transform: uppercase;
-  padding: 3px 10px;
-  border-radius: 999px;
-  border: 1px solid rgba(191, 219, 254, 0.8);
-  background: rgba(15, 23, 42, 0.7);
-  color: #bfdbfe;
-  box-shadow: 0 0 0 1px rgba(15, 23, 42, 0.6);
-}
-
-.app-menu-brand-sub {
-  font-size: 11px;
-  color: #9ca3af;
-}
-
-/* links agrupados */
-.app-menu-links {
-  display: flex;
-  flex-wrap: wrap;
-  align-items: center;
-  gap: 8px;
-}
-
-/* links do menu – versão dark */
-.app-menu-link {
-  font-size: 13px;
-  padding: 6px 14px;
-  border-radius: 999px;
-  border: 1px solid transparent;
-  color: #cbd5f5;
-  background-color: rgba(15, 23, 42, 0.4);
-  display: inline-flex;
-  align-items: center;
-  gap: 6px;
-  transition:
-    background-color var(--transition-fast),
-    border-color var(--transition-fast),
-    color var(--transition-fast),
-    transform var(--transition-fast),
-    box-shadow var(--transition-fast);
-}
-
-.app-menu-link:hover {
-  background-color: rgba(15, 23, 42, 0.9);
-  border-color: rgba(129, 140, 248, 0.7);
-  box-shadow: 0 0 0 1px rgba(129, 140, 248, 0.4);
-  transform: translateY(-1px);
-}
-
-/* estado ativo – rota atual */
-.app-menu-link.active,
-.app-menu-link[aria-current="page"],
-.app-menu-link-active {
-  background: linear-gradient(135deg, #2563eb, #4f46e5);
-  border-color: rgba(191, 219, 254, 0.8);
-  color: #ffffff;
-  box-shadow:
-    0 0 0 1px rgba(15, 23, 42, 0.85),
-    0 10px 18px rgba(15, 23, 42, 0.6);
-}
-
-/* "sub-linha" luminosa sob o ativo */
-.app-menu-link.active::after,
-.app-menu-link[aria-current="page"]::after {
-  content: "";
-  position: relative;
-  display: block;
-  margin-top: 2px;
-  height: 2px;
-  width: 70%;
-  border-radius: 999px;
-  background: linear-gradient(90deg, #22c55e, #a5b4fc);
-  opacity: 0.9;
-}
-
-/* lado direito: usuário + sair */
-.app-menu-right {
-  display: flex;
-  align-items: center;
-  gap: 14px;
-  flex-wrap: wrap;
-}
-
-/* bloco com avatar + textos do usuário */
-.app-menu-user-wrapper {
-  display: flex;
-  align-items: center;
-  gap: 8px;
-}
-
-/* "avatar" com iniciais */
-.app-menu-avatar {
-  width: 32px;
-  height: 32px;
-  border-radius: 999px;
-  display: inline-flex;
-  align-items: center;
-  justify-content: center;
-  font-size: 13px;
-  font-weight: 600;
-  color: #e5e7eb;
-  background: radial-gradient(circle at 30% 0, #93c5fd, #1d4ed8);
-  box-shadow:
-    0 0 0 2px rgba(15, 23, 42, 0.9),
-    0 0 12px rgba(59, 130, 246, 0.6);
-}
-
-/* textos do usuário */
-.app-menu-user-text {
-  display: flex;
-  flex-direction: column;
-  gap: 2px;
-}
-
-.app-menu-user-name {
-  font-size: 13px;
-  font-weight: 500;
-  color: #e5e7eb;
-}
-
-.app-menu-user-role {
-  font-size: 11px;
-  color: #9ca3af;
-}
-
-/* versão antiga da badge de usuário, se ainda existir */
-.app-menu-user {
-  font-size: 13px;
-  color: #e5e7eb;
-}
-
-/* botão sair, adaptado para fundo escuro */
-.app-menu-right .btn-secondary.app-menu-logout {
-  padding: 6px 14px;
-  font-size: 13px;
-  border-radius: 999px;
-  background: transparent;
-  color: #e5e7eb;
-  border-color: rgba(148, 163, 184, 0.8);
-  box-shadow: none;
-}
-
-.app-menu-right .btn-secondary.app-menu-logout:hover {
-  background: rgba(15, 23, 42, 0.9);
-  box-shadow: 0 0 0 1px rgba(148, 163, 184, 0.9);
-  transform: translateY(-1px);
-}
-
-/* responsivo */
-@media (max-width: 768px) {
-  .app-menu {
-    flex-direction: column;
-    align-items: stretch;
-    gap: 10px;
-  }
-
-  .app-menu-left {
-    flex-direction: column;
-    align-items: flex-start;
-    gap: 8px;
-  }
-
-  .app-menu-links {
-    flex-wrap: wrap;
-  }
-
-  .app-menu-right {
-    justify-content: space-between;
-  }
-}
-/* =========================
-   BARRA SUPERIOR – DARK BLUE
-   ========================= */
-
-.app-menu {
-  position: sticky;
-  top: 0;
-  z-index: 50;
-  width: 100%;
-  display: flex;
-  align-items: center;
-  justify-content: space-between;
-  gap: 16px;
-  padding: 10px 20px;
-  background: radial-gradient(circle at top left, #1d4ed8 0, #0b1120 55%),
-    radial-gradient(circle at bottom right, #22c55e33 0, transparent 55%),
-    #020617;
-  color: #e5e7eb;
-  box-shadow: 0 10px 25px rgba(15, 23, 42, 0.45);
-  border-bottom: 1px solid rgba(148, 163, 184, 0.4);
-  backdrop-filter: blur(8px);
-}
-
-/* Espaçador à esquerda, só para balancear visualmente */
-.app-menu-spacer {
-  flex: 1;
-}
-
-/* links do meio – ocupam 1 parte e ficam centralizados */
-.app-menu-links {
-  flex: 1;
-  display: flex;
-  align-items: center;
-  justify-content: center;
-  gap: 10px;
-}
-
-/* lado direito – usuário + sair */
-.app-menu-right {
-  flex: 1;
-  display: flex;
-  align-items: center;
-  justify-content: flex-end;
-  gap: 14px;
-  flex-wrap: wrap;
-}
-
-/* links do menu – versão dark */
-.app-menu-link {
-  position: relative;               /* para o sublinhado não embolar o texto */
-  font-size: 13px;
-  padding: 6px 16px 10px;           /* mais espaço embaixo para a linha ativa */
-  border-radius: 999px;
-  border: 1px solid transparent;
-  color: #cbd5f5;
-  background-color: rgba(15, 23, 42, 0.4);
-  display: inline-flex;
-  align-items: center;
-  justify-content: center;
-  gap: 6px;
-  transition:
-    background-color var(--transition-fast),
-    border-color var(--transition-fast),
-    color var(--transition-fast),
-    transform var(--transition-fast),
-    box-shadow var(--transition-fast);
-  white-space: nowrap;              /* evita quebrar "Novo PDCA" em duas linhas */
-}
-
-.app-menu-link:hover {
-  background-color: rgba(15, 23, 42, 0.9);
-  border-color: rgba(129, 140, 248, 0.7);
-  box-shadow: 0 0 0 1px rgba(129, 140, 248, 0.4);
-  transform: translateY(-1px);
-}
-
-/* estado ativo – rota atual */
-.app-menu-link.active,
-.app-menu-link[aria-current="page"],
-.app-menu-link-active {
-  background: linear-gradient(135deg, #2563eb, #4f46e5);
-  border-color: rgba(191, 219, 254, 0.8);
-  color: #ffffff;
-  box-shadow:
-    0 0 0 1px rgba(15, 23, 42, 0.85),
-    0 10px 18px rgba(15, 23, 42, 0.6);
-}
-
-/* sublinhado luminoso do ativo, agora absoluto (não encosta no texto) */
-.app-menu-link.active::after,
-.app-menu-link[aria-current="page"]::after {
-  content: "";
-  position: absolute;
-  left: 50%;
-  transform: translateX(-50%);
-  bottom: 3px;
-  height: 2px;
-  width: 60%;
-  border-radius: 999px;
-  background: linear-gradient(90deg, #22c55e, #a5b4fc);
-  opacity: 0.9;
-}
-
-/* bloco com avatar + textos do usuário */
-.app-menu-user-wrapper {
-  display: flex;
-  align-items: center;
-  gap: 8px;
-}
-
-/* "avatar" com iniciais */
-.app-menu-avatar {
-  width: 32px;
-  height: 32px;
-  border-radius: 999px;
-  display: inline-flex;
-  align-items: center;
-  justify-content: center;
-  font-size: 13px;
-  font-weight: 600;
-  color: #e5e7eb;
-  background: radial-gradient(circle at 30% 0, #93c5fd, #1d4ed8);
-  box-shadow:
-    0 0 0 2px rgba(15, 23, 42, 0.9),
-    0 0 12px rgba(59, 130, 246, 0.6);
-}
-
-/* textos do usuário */
-.app-menu-user-text {
-  display: flex;
-  flex-direction: column;
-  gap: 2px;
-}
-
-.app-menu-user-name {
-  font-size: 13px;
-  font-weight: 500;
-  color: #e5e7eb;
-}
-
-.app-menu-user-role {
-  font-size: 11px;
-  color: #9ca3af;
-}
-
-/* fallback antigo, se usar .app-menu-user em algum lugar */
-.app-menu-user {
-  font-size: 13px;
-  color: #e5e7eb;
-}
-
-/* botão sair adaptado pro dark header */
-.app-menu-right .btn-secondary.app-menu-logout {
-  padding: 6px 14px;
-  font-size: 13px;
-  border-radius: 999px;
-  background: transparent;
-  color: #e5e7eb;
-  border-color: rgba(148, 163, 184, 0.8);
-  box-shadow: none;
-}
-
-.app-menu-right .btn-secondary.app-menu-logout:hover {
-  background: rgba(15, 23, 42, 0.9);
-  box-shadow: 0 0 0 1px rgba(148, 163, 184, 0.9);
-  transform: translateY(-1px);
-}
-
-/* responsivo */
-@media (max-width: 768px) {
-  .app-menu {
-    flex-direction: column;
-    align-items: stretch;
-    gap: 10px;
-  }
-
-  .app-menu-spacer {
-    display: none;
-  }
-
-  .app-menu-links {
-    flex: 0;
-    justify-content: center;
-    flex-wrap: wrap;
-  }
-
-  .app-menu-right {
-    justify-content: space-between;
-  }
 }

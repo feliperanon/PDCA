@@ -18,8 +18,15 @@ import { Menu } from "./components/Menu.jsx";
 import { useAuth } from "./context/AuthContext.jsx";
 
 function RequireAuth({ children }) {
-  const { user, loading } = useAuth();
+  const auth = useAuth();
   const location = useLocation();
+
+  // Se por algum motivo o contexto vier nulo, mostra aviso
+  if (!auth) {
+    return <div>Erro: AuthProvider não está configurado.</div>;
+  }
+
+  const { user, loading } = auth;
 
   if (loading) {
     return <div className="app-loading">Carregando...</div>;
@@ -44,12 +51,12 @@ export default function ReactApp() {
 
   return (
     <div className="app-root">
-      {/* Não mostra o menu na tela de login */}
+      {/* Não mostra menu na tela de login */}
       {!isLoginPage && <Menu />}
 
       <main className="app-main">
         <Routes>
-          {/* Tela de login (sem proteção) */}
+          {/* Rota de login */}
           <Route path="/login" element={<LoginPage />} />
 
           {/* Rotas protegidas */}
@@ -98,7 +105,7 @@ export default function ReactApp() {
             }
           />
 
-          {/* Qualquer outra rota → redireciona pra Home */}
+          {/* Qualquer rota desconhecida → redireciona pra Home */}
           <Route path="*" element={<Navigate to="/" replace />} />
         </Routes>
       </main>

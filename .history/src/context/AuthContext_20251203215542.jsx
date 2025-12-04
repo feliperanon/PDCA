@@ -13,6 +13,7 @@ import {
 } from "firebase/auth";
 import { doc, getDoc } from "firebase/firestore";
 
+// Valor padrão seguro
 const defaultAuthValue = {
   user: null,
   profile: null,
@@ -30,9 +31,9 @@ const defaultAuthValue = {
 const AuthContext = createContext(defaultAuthValue);
 
 export function AuthProvider({ children }) {
-  const [user, setUser] = useState(null);
-  const [profile, setProfile] = useState(null);
-  const [loading, setLoading] = useState(true);
+  const [user, setUser] = useState(null);       // Usuário do Firebase Auth
+  const [profile, setProfile] = useState(null); // Doc em /users/{uid}
+  const [loading, setLoading] = useState(true); // Carregando auth inicial
 
   useEffect(() => {
     console.log("👀 Registrando onAuthStateChanged...");
@@ -83,9 +84,10 @@ export function AuthProvider({ children }) {
 
     console.log("✅ Firebase retornou credencial:", cred.user?.uid);
 
-    // Atualiza o estado imediatamente após login
+    // 👇 Atualiza o estado imediatamente, sem esperar onAuthStateChanged
     setUser(cred.user);
 
+    // Opcional: já tenta carregar o perfil aqui também
     try {
       const ref = doc(db, "users", cred.user.uid);
       const snap = await getDoc(ref);
