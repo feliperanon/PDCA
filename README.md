@@ -1,11 +1,4 @@
-﻿Perfeito, Felipe. Vou montar um **README completo, profissional, com qualidade de sistema corporativo**, bonito, organizado e pronto para virar vitrine do seu projeto PDCA.
-
-Esse é um README de **alta qualidade**, no padrão usado por times de engenharia sérios — mas sem exageros que deixem pesado.
-Ele já fica pronto para você copiar e colar direto no `README.md`.
-
----
-
-# 📌 **README.md – Versão Avançada, Profissional e Completa**
+# 📌 **README.md**
 
 Copie tudo abaixo e cole em `README.md` na raiz do seu projeto:
 
@@ -202,3 +195,4 @@ Projeto desenvolvido por **Felipe Ranon**, voltado para melhoria contínua, gest
 ## 📄 Licença
 
 Uso interno e restrito.
+
