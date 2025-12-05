@@ -1,65 +1,68 @@
-/* Serviço responsável por conectar com a IA (Google Gemini).
-  Se não houver chave de API configurada, ele usa uma simulação para testes.
-*/
-
+/* src/services/aiService.js */
 import { GoogleGenerativeAI } from "@google/generative-ai";
 
-// COLOQUE SUA CHAVE AQUI (Mantenha as aspas)
-const API_KEY = "SUA_API_KEY_DO_GOOGLE_AQUI"; 
+// SUA CHAVE (Mantenha a que você gerou)
+const API_KEY = "AIzaSyCmtLe1w5gf0J-QWDdYacrH1zkNr-5i_-8"; 
 
 export async function gerarPdcaComIA(textoProblema) {
   console.log("Iniciando análise com IA para:", textoProblema);
 
-  // --- MODO SIMULAÇÃO (FALLBACK) ---
-  // Se a chave for a padrão ou vazia, simulamos a IA para você ver o app funcionando
-  if (API_KEY === "SUA_API_KEY_DO_GOOGLE_AQUI" || !API_KEY) {
-    console.warn("⚠️ API Key não configurada. Usando modo SIMULAÇÃO.");
-    return new Promise((resolve) => {
-      setTimeout(() => {
-        resolve({
-          titulo_sugerido: "Falha Operacional Detectada (Simulação)",
-          categoria: "Processo / Organização",
-          prioridade: "Média",
-          causas: "1. Falta de padronização.\n2. Ausência de conferência.\n3. Treinamento insuficiente.",
-          meta: "Reduzir a ocorrência deste problema em 50% nos próximos 30 dias.",
-          planoAcao: "1. Realizar reunião de alinhamento.\n2. Criar checklist de conferência.\n3. Treinar a equipe no novo procedimento."
-        });
-      }, 2000); // Espera 2 segundos para parecer que está pensando
-    });
+  if (!API_KEY || API_KEY.includes("SUA_API_KEY")) {
+    return fallbackSimulation("Chave não configurada");
   }
 
-  // --- MODO REAL (GOOGLE GEMINI) ---
   try {
     const genAI = new GoogleGenerativeAI(API_KEY);
+    
+    // 🔥 USANDO O MODELO MAIS RECENTE E RÁPIDO (Agora suportado pela sua lib nova)
     const model = genAI.getGenerativeModel({ model: "gemini-1.5-flash" });
 
     const prompt = `
-      Você é um Consultor Especialista em PDCA e Lean Manufacturing.
-      Analise o seguinte relato de problema operacional: "${textoProblema}"
-
-      Retorne APENAS um objeto JSON (sem crase, sem markdown) com a seguinte estrutura:
+      Atue como Especialista em PDCA. Analise: "${textoProblema}"
+      Responda APENAS com este JSON (sem markdown):
       {
-        "titulo_sugerido": "Um título curto e profissional (max 50 chars)",
-        "categoria": "Escolha uma: 'Quebra / perda de produto', 'Atraso / tempo', 'Comunicação / alinhamento', 'Organização / processo', 'Segurança / risco', 'Outro'",
-        "prioridade": "Classifique em: 'Baixa', 'Média', 'Alta' ou 'Crítica'",
-        "causas": "Lista formatada em texto das 3 prováveis causas raízes baseadas nos 6M",
-        "meta": "Sugira uma meta SMART (Específica, Mensurável, Atingível, Relevante, Temporal)",
-        "planoAcao": "Sugira 3 passos práticos para resolver (Quem, Onde, Quando)"
+        "titulo_sugerido": "Título curto (max 50 chars)",
+        "categoria": "Escolha: 'Quebra / perda de produto', 'Atraso / tempo', 'Comunicação / alinhamento', 'Organização / processo', 'Segurança / risco', 'Outro'",
+        "prioridade": "Baixa, Média, Alta ou Crítica",
+        "area_sugerida": "Setor provável",
+        "turno_sugerido": "Dia/Noite ou vazio",
+        "tipo_objeto": "O que falhou (Ex: Empilhadeira, Sistema)",
+        "descricao_objeto": "Detalhe do objeto",
+        "causas": "3 causas provaveis",
+        "meta": "Meta smart",
+        "planoAcao": "3 passos de ação"
       }
     `;
 
     const result = await model.generateContent(prompt);
     const response = await result.response;
     const text = response.text();
-
-    // Limpeza para garantir que venha apenas o JSON (remove formatação Markdown se houver)
-    const jsonString = text.replace(/```json|```/g, "").trim();
     
+    const jsonString = text.replace(/```json|```/g, "").trim();
     return JSON.parse(jsonString);
 
   } catch (error) {
-    console.error("Erro ao chamar a IA:", error);
-    alert("Houve um erro ao conectar com a IA. Verifique o console.");
-    throw error;
+    console.error("Erro na IA:", error);
+    // Se der erro, mostra mensagem clara na tela
+    return fallbackSimulation("Erro: " + error.message.slice(0, 20));
   }
+}
+
+function fallbackSimulation(motivo) {
+    return new Promise((resolve) => {
+      setTimeout(() => {
+        resolve({
+          titulo_sugerido: "Erro de Conexão (Simulação)",
+          categoria: "Outro",
+          prioridade: "Média",
+          area_sugerida: "Erro",
+          turno_sugerido: "-",
+          tipo_objeto: "Erro API",
+          descricao_objeto: motivo,
+          causas: "1. Biblioteca desatualizada ou Cache.\n2. Tente rodar com --force.",
+          meta: "Reiniciar servidor.",
+          planoAcao: "Pare o servidor e rode: npm run dev -- --force"
+        });
+      }, 1000);
+    });
 }
