@@ -1,14 +1,7 @@
 // src/pages/PdcaDetailPage.jsx
 import { useEffect, useState } from "react";
 import { useParams, useNavigate } from "react-router-dom";
-import {
-  addDoc,
-  collection,
-  deleteDoc,
-  doc,
-  getDoc,
-  updateDoc,
-} from "firebase/firestore";
+import { doc, getDoc, updateDoc, collection, addDoc, deleteDoc } from "firebase/firestore";
 import { db } from "../firebase.js";
 
 function gerarCodigoPdca() {
@@ -25,6 +18,9 @@ export function PdcaDetailPage() {
   const [pdca, setPdca] = useState(null);
   const [loading, setLoading] = useState(true);
 
+  // --- CONTROLE VISUAL ---
+  const [isEditingContext, setIsEditingContext] = useState(false);
+
   // saving separado
   const [savingPlan, setSavingPlan] = useState(false);
   const [savingDo, setSavingDo] = useState(false);
@@ -35,29 +31,28 @@ export function PdcaDetailPage() {
   const [error, setError] = useState("");
   const [globalMessage, setGlobalMessage] = useState("");
 
-  // mensagens por card (sucesso / cancelamento)
+  // mensagens por card
   const [planMessage, setPlanMessage] = useState("");
   const [doMessage, setDoMessage] = useState("");
   const [checkMessage, setCheckMessage] = useState("");
   const [actMessage, setActMessage] = useState("");
 
-  // --- PLAN (Novos campos adicionados) ---
+  // --- PLAN ---
   const [prioridade, setPrioridade] = useState("");
   const [area, setArea] = useState("");
   const [meta, setMeta] = useState("");
   const [textoProblema, setTextoProblema] = useState("");
   const [dataAlvo, setDataAlvo] = useState("");
   
-  // Novos campos detalhados
   const [categoria, setCategoria] = useState("");
   const [responsavel, setResponsavel] = useState("");
   const [turno, setTurno] = useState("");
   const [tipoObjeto, setTipoObjeto] = useState("");
   const [descricaoObjeto, setDescricaoObjeto] = useState("");
-  const [causas, setCausas] = useState(""); // Hipóteses
-  const [planoAcao, setPlanoAcao] = useState(""); // O passo a passo
-  const [indicadorReferencia, setIndicadorReferencia] = useState(""); // Indicador Antes (Plan)
-  const [indicadorDesejado, setIndicadorDesejado] = useState(""); // Indicador Desejado (Plan)
+  const [causas, setCausas] = useState("");
+  const [planoAcao, setPlanoAcao] = useState("");
+  const [indicadorReferencia, setIndicadorReferencia] = useState("");
+  const [indicadorDesejado, setIndicadorDesejado] = useState("");
 
   // DO
   const [doAcoes, setDoAcoes] = useState("");
@@ -70,16 +65,16 @@ export function PdcaDetailPage() {
   const [checkObs, setCheckObs] = useState("");
 
   // ACT
-  const [actFuncionou, setActFuncionou] = useState(""); // "sim" | "nao" | ""
+  const [actFuncionou, setActFuncionou] = useState("");
   const [actPadrao, setActPadrao] = useState("");
   const [actLicoes, setActLicoes] = useState("");
 
-  // carimbos de tempo
+  // carimbos
   const [doIniciadoEm, setDoIniciadoEm] = useState(null);
   const [checkIniciadoEm, setCheckIniciadoEm] = useState(null);
   const [actIniciadoEm, setActIniciadoEm] = useState(null);
 
-  // Snapshots para botão "Cancelar"
+  // Snapshots (para o botão cancelar funcionar corretamente)
   const [initialPlan, setInitialPlan] = useState(null);
   const [initialDo, setInitialDo] = useState(null);
   const [initialCheck, setInitialCheck] = useState(null);
@@ -88,10 +83,6 @@ export function PdcaDetailPage() {
   useEffect(() => {
     async function loadPdca() {
       setLoading(true);
-      setError("");
-      setGlobalMessage("");
-      setPlanMessage("");
-
       try {
         const ref = doc(db, "pdcas", id);
         const snap = await getDoc(ref);
@@ -109,83 +100,50 @@ export function PdcaDetailPage() {
           const checkBlock = data.check || {};
           const actBlock = data.act || {};
 
-          // --- PLAN (Mapeamento dos dados) ---
-          const pPrioridade = plan.prioridade || "";
-          const pArea = data.area || plan.area || ""; // Tenta pegar da raiz ou do plan
-          const pMeta = plan.meta || "";
-          const pProblema = plan.descricaoProblema || plan.problema || ""; // Compatibilidade com IA e Manual
-          const pDataAlvo = plan.dataAlvo || "";
-          
-          const pCategoria = plan.categoria || "";
-          const pResponsavel = data.responsavel || plan.responsavel || "";
-          const pTurno = plan.turno || "";
-          const pTipoObjeto = plan.tipoObjeto || "";
-          const pDescricaoObjeto = plan.descricaoObjeto || "";
-          const pCausas = plan.causas || "";
-          const pPlanoAcao = plan.planoAcao || "";
-          const pIndRef = plan.indicadorReferencia || "";
-          const pIndDes = plan.indicadorDesejado || "";
-
-          setPrioridade(pPrioridade);
-          setArea(pArea);
-          setMeta(pMeta);
-          setTextoProblema(pProblema);
-          setDataAlvo(pDataAlvo);
-          setCategoria(pCategoria);
-          setResponsavel(pResponsavel);
-          setTurno(pTurno);
-          setTipoObjeto(pTipoObjeto);
-          setDescricaoObjeto(pDescricaoObjeto);
-          setCausas(pCausas);
-          setPlanoAcao(pPlanoAcao);
-          setIndicadorReferencia(pIndRef);
-          setIndicadorDesejado(pIndDes);
+          // PLAN
+          setPrioridade(plan.prioridade || "");
+          setArea(data.area || plan.area || "");
+          setMeta(plan.meta || "");
+          setTextoProblema(plan.descricaoProblema || plan.problema || "");
+          setDataAlvo(plan.dataAlvo || "");
+          setCategoria(plan.categoria || "");
+          setResponsavel(data.responsavel || plan.responsavel || "");
+          setTurno(plan.turno || "");
+          setTipoObjeto(plan.tipoObjeto || "");
+          setDescricaoObjeto(plan.descricaoObjeto || "");
+          setCausas(plan.causas || "");
+          setPlanoAcao(plan.planoAcao || "");
+          setIndicadorReferencia(plan.indicadorReferencia || "");
+          setIndicadorDesejado(plan.indicadorDesejado || "");
 
           setInitialPlan({
-            prioridade: pPrioridade,
-            area: pArea,
-            meta: pMeta,
-            textoProblema: pProblema,
-            dataAlvo: pDataAlvo,
-            categoria: pCategoria,
-            responsavel: pResponsavel,
-            turno: pTurno,
-            tipoObjeto: pTipoObjeto,
-            descricaoObjeto: pDescricaoObjeto,
-            causas: pCausas,
-            planoAcao: pPlanoAcao,
-            indicadorReferencia: pIndRef,
-            indicadorDesejado: pIndDes
+            prioridade: plan.prioridade, area: data.area, meta: plan.meta,
+            textoProblema: plan.descricaoProblema, dataAlvo: plan.dataAlvo,
+            categoria: plan.categoria, responsavel: data.responsavel, turno: plan.turno,
+            tipoObjeto: plan.tipoObjeto, descricaoObjeto: plan.descricaoObjeto,
+            causas: plan.causas, planoAcao: plan.planoAcao,
+            indicadorReferencia: plan.indicadorReferencia, indicadorDesejado: plan.indicadorDesejado
           });
 
           // DO
-          const dAcoes = doBlock.acoesRealizadas || "";
-          const dQuem = doBlock.quemFez || "";
-          const dQuando = doBlock.quandoFez || "";
-          setDoAcoes(dAcoes);
-          setDoQuem(dQuem);
-          setDoQuando(dQuando);
-          setInitialDo({ doAcoes: dAcoes, doQuem: dQuem, doQuando: dQuando });
+          setDoAcoes(doBlock.acoesRealizadas || "");
+          setDoQuem(doBlock.quemFez || "");
+          setDoQuando(doBlock.quandoFez || "");
+          setInitialDo({ doAcoes: doBlock.acoesRealizadas, doQuem: doBlock.quemFez, doQuando: doBlock.quandoFez });
 
           // CHECK
-          const cAntes = checkBlock.indicadoresAntes || "";
-          const cDepois = checkBlock.indicadoresDepois || "";
-          const cObs = checkBlock.observacoes || "";
-          setCheckAntes(cAntes);
-          setCheckDepois(cDepois);
-          setCheckObs(cObs);
-          setInitialCheck({ checkAntes: cAntes, checkDepois: cDepois, checkObs: cObs });
+          setCheckAntes(checkBlock.indicadoresAntes || "");
+          setCheckDepois(checkBlock.indicadoresDepois || "");
+          setCheckObs(checkBlock.observacoes || "");
+          setInitialCheck({ checkAntes: checkBlock.indicadoresAntes, checkDepois: checkBlock.indicadoresDepois, checkObs: checkBlock.observacoes });
 
           // ACT
-          const aFunc = actBlock.funcionou === "sim" ? "sim" : actBlock.funcionou === "nao" ? "nao" : "";
-          const aPadrao = actBlock.padrao || "";
-          const aLicoes = actBlock.licoes || "";
-          setActFuncionou(aFunc);
-          setActPadrao(aPadrao);
-          setActLicoes(aLicoes);
-          setInitialAct({ actFuncionou: aFunc, actPadrao: aPadrao, actLicoes: aLicoes });
+          setActFuncionou(actBlock.funcionou === "sim" ? "sim" : actBlock.funcionou === "nao" ? "nao" : "");
+          setActPadrao(actBlock.padrao || "");
+          setActLicoes(actBlock.licoes || "");
+          setInitialAct({ actFuncionou: actBlock.funcionou, actPadrao: actBlock.padrao, actLicoes: actBlock.licoes });
 
-          // carimbos
+          // Carimbos
           setDoIniciadoEm(data.doIniciadoEm || null);
           setCheckIniciadoEm(data.checkIniciadoEm || null);
           setActIniciadoEm(data.actIniciadoEm || null);
@@ -197,428 +155,348 @@ export function PdcaDetailPage() {
         setLoading(false);
       }
     }
-
     if (id) loadPdca();
   }, [id]);
 
-  // --------- TRAVAS ENTRE ETAPAS ---------
+  // Trava
   const planOK = textoProblema && textoProblema.trim() !== "";
   const doOK = planOK && ((doAcoes && doAcoes.trim() !== "") || (doQuem && doQuem.trim() !== "") || (doQuando && doQuando.trim() !== ""));
   const checkOK = doOK && ((checkAntes && checkAntes.trim() !== "") || (checkDepois && checkDepois.trim() !== "") || (checkObs && checkObs.trim() !== ""));
   const actOK = checkOK && actFuncionou && actFuncionou !== "";
 
-  function calcularNovoStatus() {
-    if (actFuncionou === "sim") return "Padronizado";
-    const temCheck = (checkAntes && checkAntes.trim() !== "") || (checkDepois && checkDepois.trim() !== "") || (checkObs && checkObs.trim() !== "");
-    const temDo = (doAcoes && doAcoes.trim() !== "") || (doQuem && doQuem.trim() !== "") || (doQuando && doQuando.trim() !== "");
-    if (temCheck) return "Checando";
-    if (temDo) return "Executando";
-    return "Planejando";
-  }
-
-  // --------- SALVAR GENÉRICO ---------
-  async function savePdcaCore() {
-    if (!pdca) return;
-    if ((pdca.situacao || "ativo") !== "ativo") return;
-
+  // --- FUNÇÃO CENTRAL DE SALVAR (CORRIGIDA) ---
+  async function savePdcaCore(sectionToUpdate) {
+    if (!pdca || (pdca.situacao || "ativo") !== "ativo") return;
     setError("");
-    const novoStatus = calcularNovoStatus();
+    
+    // Calcula status
+    let novoStatus = "Planejando";
+    const temDo = doAcoes || doQuem || doQuando;
+    const temCheck = checkAntes || checkDepois || checkObs;
+    if (actFuncionou === "sim") novoStatus = "Padronizado";
+    else if (temCheck) novoStatus = "Checando";
+    else if (temDo) novoStatus = "Executando";
+
     const agoraISO = new Date().toISOString();
-
-    const prev = pdca || {};
-    const prevDo = prev.do || {};
-    const prevCheck = prev.check || {};
-    const prevAct = prev.act || {};
-
-    // Lógica de carimbo de tempo (mantida)
-    const prevDoVazio = !prevDo.acoesRealizadas && !prevDo.quemFez && !prevDo.quandoFez;
-    const agoraDoVazio = !doAcoes && !doQuem && !doQuando;
-    const prevCheckVazio = !prevCheck.indicadoresAntes && !prevCheck.indicadoresDepois && !prevCheck.observacoes;
-    const agoraCheckVazio = !checkAntes && !checkDepois && !checkObs;
-    const prevActVazio = !prevAct.funcionou && !prevAct.padrao && !prevAct.licoes;
-    const agoraActVazio = !actFuncionou && !actPadrao && !actLicoes;
-
     let novoDoIniciadoEm = doIniciadoEm;
-    let novoCheckIniciadoEm = checkIniciadoEm;
-    let novoActIniciadoEm = actIniciadoEm;
-
-    if (prevDoVazio && !agoraDoVazio && !novoDoIniciadoEm) novoDoIniciadoEm = agoraISO;
-    if (prevCheckVazio && !agoraCheckVazio && !novoCheckIniciadoEm) novoCheckIniciadoEm = agoraISO;
-    if (prevActVazio && !agoraActVazio && !novoActIniciadoEm) novoActIniciadoEm = agoraISO;
+    if (!doIniciadoEm && temDo) novoDoIniciadoEm = agoraISO;
 
     try {
       const ref = doc(db, "pdcas", pdca.id);
+      
+      // 1. Atualiza no Banco de Dados
       await updateDoc(ref, {
-        "plan.prioridade": prioridade,
-        "plan.area": area,
-        "plan.meta": meta,
-        "plan.problema": textoProblema,
-        "plan.dataAlvo": dataAlvo,
-        // Novos campos salvos no PLAN
-        "plan.categoria": categoria,
-        "plan.responsavel": responsavel,
-        "plan.turno": turno,
-        "plan.tipoObjeto": tipoObjeto,
-        "plan.descricaoObjeto": descricaoObjeto,
-        "plan.causas": causas,
-        "plan.planoAcao": planoAcao,
-        "plan.indicadorReferencia": indicadorReferencia,
+        "plan.prioridade": prioridade, "plan.area": area, "plan.meta": meta,
+        "plan.problema": textoProblema, "plan.dataAlvo": dataAlvo,
+        "plan.categoria": categoria, "plan.responsavel": responsavel,
+        "plan.turno": turno, "plan.tipoObjeto": tipoObjeto,
+        "plan.descricaoObjeto": descricaoObjeto, "plan.causas": causas,
+        "plan.planoAcao": planoAcao, "plan.indicadorReferencia": indicadorReferencia,
         "plan.indicadorDesejado": indicadorDesejado,
+        "area": area, "responsavel": responsavel, // raiz
         
-        // Atualiza raiz também para facilitar filtros
-        "area": area, 
-        "responsavel": responsavel,
-
         do: { acoesRealizadas: doAcoes, quemFez: doQuem, quandoFez: doQuando },
         check: { indicadoresAntes: checkAntes, indicadoresDepois: checkDepois, observacoes: checkObs },
         act: { funcionou: actFuncionou, padrao: actPadrao, licoes: actLicoes },
-
-        status: novoStatus,
-        atualizadoEm: agoraISO,
-        ...(novoDoIniciadoEm && { doIniciadoEm: novoDoIniciadoEm }),
-        ...(novoCheckIniciadoEm && { checkIniciadoEm: novoCheckIniciadoEm }),
-        ...(novoActIniciadoEm && { actIniciadoEm: novoActIniciadoEm }),
+        status: novoStatus, atualizadoEm: agoraISO,
+        ...(novoDoIniciadoEm && { doIniciadoEm: novoDoIniciadoEm })
       });
-
-      setDoIniciadoEm(novoDoIniciadoEm);
-      setCheckIniciadoEm(novoCheckIniciadoEm);
-      setActIniciadoEm(novoActIniciadoEm);
-
-      // Atualiza Initial Plan
-      setInitialPlan({
-        prioridade, area, meta, textoProblema, dataAlvo,
-        categoria, responsavel, turno, tipoObjeto, descricaoObjeto,
-        causas, planoAcao, indicadorReferencia, indicadorDesejado
-      });
-      setInitialDo({ doAcoes, doQuem, doQuando });
-      setInitialCheck({ checkAntes, checkDepois, checkObs });
-      setInitialAct({ actFuncionou, actPadrao, actLicoes });
-
-      // Atualiza estado local
-      setPdca((prev) => prev ? {
-          ...prev,
-          plan: { 
-            ...prev.plan, prioridade, area, meta, problema: textoProblema, dataAlvo,
-            categoria, responsavel, turno, tipoObjeto, descricaoObjeto, causas, planoAcao, indicadorReferencia, indicadorDesejado
-          },
-          area, // atualiza raiz
-          responsavel, // atualiza raiz
-          do: { acoesRealizadas: doAcoes, quemFez: doQuem, quandoFez: doQuando },
-          check: { indicadoresAntes: checkAntes, indicadoresDepois: checkDepois, observacoes: checkObs },
-          act: { funcionou: actFuncionou, padrao: actPadrao, licoes: actLicoes },
-          status: novoStatus,
-          atualizadoEm: agoraISO,
+      
+      // 2. Atualiza o Objeto PDCA Local (Para consistência)
+      setPdca(prev => ({
+          ...prev, 
+          status: novoStatus, 
+          atualizadoEm: agoraISO, 
           doIniciadoEm: novoDoIniciadoEm,
-          checkIniciadoEm: novoCheckIniciadoEm,
-          actIniciadoEm: novoActIniciadoEm
-      } : prev);
+          area: area,
+          responsavel: responsavel,
+          plan: {
+             ...prev.plan,
+             prioridade, area, meta, problema: textoProblema, dataAlvo,
+             categoria, responsavel, turno, tipoObjeto, descricaoObjeto,
+             causas, planoAcao, indicadorReferencia, indicadorDesejado
+          }
+      }));
 
+      // 3. Atualiza o Snapshot (Para o botão cancelar não trazer dados velhos)
+      if (sectionToUpdate === 'context' || sectionToUpdate === 'plan') {
+         setInitialPlan({
+            prioridade, area, meta, textoProblema, dataAlvo,
+            categoria, responsavel, turno, tipoObjeto, descricaoObjeto,
+            causas, planoAcao, indicadorReferencia, indicadorDesejado
+         });
+         
+         if(sectionToUpdate === 'context') {
+             setIsEditingContext(false); // Fecha o modo edição
+         }
+      }
+      
     } catch (e) {
       console.error(e);
-      setError("Erro ao salvar alterações.");
+      setError("Erro ao salvar.");
     }
   }
 
-  // --------- FUNÇÕES DE BOTÕES ---------
-  const limparMensagensCards = () => {
-    setPlanMessage(""); setDoMessage(""); setCheckMessage(""); setActMessage("");
+  // Handlers
+  const handleSaveContext = async () => { 
+      setSavingPlan(true); 
+      await savePdcaCore('context'); 
+      setSavingPlan(false); 
+      // Não precisamos de mensagem aqui pois fechamos o form
   };
+  
+  const handleSavePlan = async () => { setSavingPlan(true); await savePdcaCore('plan'); setSavingPlan(false); setPlanMessage("Dados atualizados."); };
+  const handleSaveDo = async () => { setSavingDo(true); await savePdcaCore(); setSavingDo(false); setDoMessage("Dados atualizados."); };
+  const handleSaveCheck = async () => { setSavingCheck(true); await savePdcaCore(); setSavingCheck(false); setCheckMessage("Dados atualizados."); };
+  const handleSaveAct = async () => { setSavingAct(true); await savePdcaCore(); setSavingAct(false); setActMessage("Dados atualizados."); };
 
-  const handleSavePlan = async () => {
-    limparMensagensCards(); setSavingPlan(true); await savePdcaCore(); setSavingPlan(false); setPlanMessage("Dados do Plan atualizados.");
+  // Cancelar (Contexto)
+  const handleCancelarContext = () => {
+    if(!initialPlan) return;
+    setCategoria(initialPlan.categoria || ""); 
+    setPrioridade(initialPlan.prioridade || ""); 
+    setArea(initialPlan.area || "");
+    setResponsavel(initialPlan.responsavel || ""); 
+    setTurno(initialPlan.turno || ""); 
+    setDataAlvo(initialPlan.dataAlvo || "");
+    setTipoObjeto(initialPlan.tipoObjeto || ""); 
+    setDescricaoObjeto(initialPlan.descricaoObjeto || "");
+    setIsEditingContext(false);
   };
-  const handleSaveDo = async () => {
-    if (!planOK) return; limparMensagensCards(); setSavingDo(true); await savePdcaCore(); setSavingDo(false); setDoMessage("Dados do Do atualizados.");
-  };
-  const handleSaveCheck = async () => {
-    if (!doOK) return; limparMensagensCards(); setSavingCheck(true); await savePdcaCore(); setSavingCheck(false); setCheckMessage("Dados do Check atualizados.");
-  };
-  const handleSaveAct = async () => {
-    if (!checkOK) return; limparMensagensCards(); setSavingAct(true); await savePdcaCore(); setSavingAct(false); setActMessage("Dados do Act atualizados.");
-  };
-
-  // Cancelar edições
+  
   const handleCancelarPlan = () => {
-    if (!initialPlan) return;
-    setPrioridade(initialPlan.prioridade); setArea(initialPlan.area); setMeta(initialPlan.meta);
-    setTextoProblema(initialPlan.textoProblema); setDataAlvo(initialPlan.dataAlvo);
-    setCategoria(initialPlan.categoria); setResponsavel(initialPlan.responsavel); setTurno(initialPlan.turno);
-    setTipoObjeto(initialPlan.tipoObjeto); setDescricaoObjeto(initialPlan.descricaoObjeto);
-    setCausas(initialPlan.causas); setPlanoAcao(initialPlan.planoAcao);
-    setIndicadorReferencia(initialPlan.indicadorReferencia); setIndicadorDesejado(initialPlan.indicadorDesejado);
-    setPlanMessage("Edição cancelada.");
-  };
-  const handleCancelarDo = () => {
-    if (!initialDo) return; setDoAcoes(initialDo.doAcoes); setDoQuem(initialDo.doQuem); setDoQuando(initialDo.doQuando); setDoMessage("Edição cancelada.");
-  };
-  const handleCancelarCheck = () => {
-    if (!initialCheck) return; setCheckAntes(initialCheck.checkAntes); setCheckDepois(initialCheck.checkDepois); setCheckObs(initialCheck.checkObs); setCheckMessage("Edição cancelada.");
-  };
-  const handleCancelarAct = () => {
-    if (!initialAct) return; setActFuncionou(initialAct.actFuncionou); setActPadrao(initialAct.actPadrao); setActLicoes(initialAct.actLicoes); setActMessage("Edição cancelada.");
+    if(!initialPlan) return;
+    setTextoProblema(initialPlan.textoProblema || "");
+    setCausas(initialPlan.causas || "");
+    setIndicadorReferencia(initialPlan.indicadorReferencia || "");
+    setIndicadorDesejado(initialPlan.indicadorDesejado || "");
+    setMeta(initialPlan.meta || "");
+    setPlanoAcao(initialPlan.planoAcao || "");
   };
 
-  // Ciclo de vida do projeto
-  const handleReabrirCiclo = async () => {
-    if (!pdca || actFuncionou !== "nao" || (pdca.situacao || "ativo") !== "ativo") return;
-    setSavingProject(true);
-    try {
-      const agoraISO = new Date().toISOString();
-      const novoCodigo = gerarCodigoPdca();
-      const novoDoc = {
-        codigo: novoCodigo, titulo: pdca.titulo || `Reabertura ${pdca.codigo}`, status: "Planejando", situacao: "ativo",
-        plan: { ...pdca.plan }, do: null, check: null, act: null, criadoEm: agoraISO, atualizadoEm: agoraISO,
-        cicloAnteriorId: pdca.id, cicloAnteriorCodigo: pdca.codigo
-      };
-      const refCol = collection(db, "pdcas");
-      const novoRef = await addDoc(refCol, novoDoc);
-      await updateDoc(doc(db, "pdcas", pdca.id), { cicloReabertoParaId: novoRef.id, cicloReabertoParaCodigo: novoCodigo });
-      setGlobalMessage(`Novo ciclo criado: ${novoCodigo}.`);
-    } catch (e) { setError("Erro ao reabrir ciclo."); } finally { setSavingProject(false); }
-  };
-
-  const canConcluir = planOK && doOK && checkOK && actOK;
   const handleConcluirProjeto = async () => {
-    if (!pdca || (pdca.situacao || "ativo") !== "ativo" || !canConcluir || !window.confirm("Concluir projeto?")) return;
-    setSavingProject(true);
-    try {
-      const agoraISO = new Date().toISOString();
-      await updateDoc(doc(db, "pdcas", pdca.id), { situacao: "concluido", concluidoEm: agoraISO, atualizadoEm: agoraISO });
-      setPdca(prev => ({ ...prev, situacao: "concluido", concluidoEm: agoraISO, atualizadoEm: agoraISO }));
-      setGlobalMessage("Projeto concluído!");
-    } catch (e) { setError("Erro ao concluir."); } finally { setSavingProject(false); }
+      if (!pdca || !window.confirm("Concluir projeto?")) return;
+      setSavingProject(true);
+      try {
+        const agoraISO = new Date().toISOString();
+        await updateDoc(doc(db, "pdcas", pdca.id), { situacao: "concluido", concluidoEm: agoraISO, atualizadoEm: agoraISO });
+        setPdca(prev => ({ ...prev, situacao: "concluido", concluidoEm: agoraISO, atualizadoEm: agoraISO }));
+        setGlobalMessage("Projeto concluído!");
+      } catch (e) { setError("Erro ao concluir."); } finally { setSavingProject(false); }
   };
 
   const handleCancelarProjeto = async () => {
-    if (!pdca || (pdca.situacao || "ativo") !== "ativo" || !window.confirm("Cancelar projeto?")) return;
-    setSavingProject(true);
-    try {
-      const agoraISO = new Date().toISOString();
-      await updateDoc(doc(db, "pdcas", pdca.id), { situacao: "cancelado", canceladoEm: agoraISO, atualizadoEm: agoraISO });
-      setPdca(prev => ({ ...prev, situacao: "cancelado", canceladoEm: agoraISO, atualizadoEm: agoraISO }));
-      setGlobalMessage("Projeto cancelado.");
-    } catch (e) { setError("Erro ao cancelar."); } finally { setSavingProject(false); }
+      if (!pdca || !window.confirm("Cancelar projeto?")) return;
+      setSavingProject(true);
+      try {
+        const agoraISO = new Date().toISOString();
+        await updateDoc(doc(db, "pdcas", pdca.id), { situacao: "cancelado", canceladoEm: agoraISO, atualizadoEm: agoraISO });
+        setPdca(prev => ({ ...prev, situacao: "cancelado", canceladoEm: agoraISO, atualizadoEm: agoraISO }));
+        setGlobalMessage("Projeto cancelado.");
+      } catch (e) { setError("Erro ao cancelar."); } finally { setSavingProject(false); }
   };
-
+  
   const handleExcluirProjeto = async () => {
-    if (!pdca || !window.confirm("Excluir projeto permanentemente?")) return;
-    setSavingProject(true);
-    try { await deleteDoc(doc(db, "pdcas", pdca.id)); navigate("/dashboard"); } catch (e) { setError("Erro ao excluir."); setSavingProject(false); }
+      if (!pdca || !window.confirm("Excluir projeto permanentemente?")) return;
+      setSavingProject(true);
+      try { await deleteDoc(doc(db, "pdcas", pdca.id)); navigate("/dashboard"); } catch (e) { setError("Erro ao excluir."); setSavingProject(false); }
   };
 
-  if (loading) return <div className="page">Carregando PDCA...</div>;
-  if (!pdca) return <div className="page">{error || "PDCA não encontrado."}</div>;
+  if (loading) return <div className="page">Carregando...</div>;
+  if (!pdca) return <div className="page">PDCA não encontrado.</div>;
 
-  const situacao = pdca.situacao || "ativo";
-  const isAtivo = situacao === "ativo";
-  const situacaoLabel = situacao === "ativo" ? "Ativo" : situacao === "concluido" ? "Concluído" : "Cancelado";
+  const isAtivo = (pdca.situacao || "ativo") === "ativo";
 
   return (
     <div className="page">
       <div className="detail-header">
         <div>
-          <h1 className="page-title">{pdca.codigo || pdca.id} — {pdca.titulo}</h1>
-          <p className="detail-status">Status: {pdca.status} | Situação: {situacaoLabel}</p>
+          <h1 className="page-title">{pdca.codigo || pdca.id}</h1>
+          <h2 style={{margin: '5px 0', fontSize: '1.2rem', color: '#555'}}>{pdca.titulo}</h2>
+          <div style={{display: 'flex', gap: '15px', marginTop: '10px'}}>
+             <span className="status-badge">{pdca.status}</span>
+             <span className={`status-badge ${isAtivo ? 'badge-alta' : 'badge-critica'}`} style={{background: isAtivo ? '#e6fffa' : '#fff5f5'}}>
+                {isAtivo ? '🟢 Em Andamento' : '🔴 Encerrado'}
+             </span>
+          </div>
         </div>
         <div className="detail-actions">
-          <button onClick={handleConcluirProjeto} disabled={savingProject || !canConcluir || !isAtivo} className="btn-primary">Concluir</button>
-          <button onClick={handleCancelarProjeto} disabled={savingProject || !isAtivo} className="btn-secondary">Cancelar</button>
-          <button onClick={handleExcluirProjeto} disabled={savingProject} className="btn-danger">Excluir</button>
+           {isAtivo && <button onClick={handleConcluirProjeto} disabled={savingProject || !actOK} className="btn-primary" style={{marginRight: 5}}>Concluir</button>}
+           {isAtivo && <button onClick={handleCancelarProjeto} disabled={savingProject} className="btn-secondary" style={{marginRight: 5}}>Encerrar</button>}
+           <button onClick={handleExcluirProjeto} disabled={savingProject} className="btn-danger">Excluir</button>
         </div>
       </div>
 
-      {!isAtivo && <div className="alert">PDCA <strong>{situacaoLabel}</strong>. Modo somente leitura.</div>}
       {globalMessage && <div className="alert">{globalMessage}</div>}
-      {error && !loading && <div className="alert alert-error">{error}</div>}
 
-      {/* GRID: PLAN | DO */}
-      <div className="detail-grid">
-        {/* PLAN - CARD EXPANDIDO */}
-        <section className="form-section detail-card">
-          <h2>Plan – problema e contexto</h2>
-          {planMessage && <div className="alert alert-success">{planMessage}</div>}
-
-          {/* INFORMAÇÕES GERAIS */}
-          <div style={{display: 'grid', gridTemplateColumns: '1fr 1fr', gap: '10px'}}>
-             <label>Categoria
-               <select value={categoria} onChange={e => setCategoria(e.target.value)} disabled={!isAtivo}>
-                  <option value="">Selecione...</option>
-                  <option value="Quebra / perda de produto">Quebra / perda de produto</option>
-                  <option value="Atraso / tempo">Atraso / tempo</option>
-                  <option value="Comunicação / alinhamento">Comunicação / alinhamento</option>
-                  <option value="Organização / processo">Organização / processo</option>
-                  <option value="Segurança / risco">Segurança / risco</option>
-                  <option value="Outro">Outro</option>
-               </select>
-             </label>
-             <label>Prioridade
-               <select value={prioridade} onChange={e => setPrioridade(e.target.value)} disabled={!isAtivo}>
-                 <option value="">Selecione...</option>
-                 <option value="Crítica">Crítica</option>
-                 <option value="Alta">Alta</option>
-                 <option value="Média">Média</option>
-                 <option value="Baixa">Baixa</option>
-               </select>
-             </label>
-          </div>
-
-          <div style={{display: 'grid', gridTemplateColumns: '1fr 1fr', gap: '10px'}}>
-            <label>Área
-              <input type="text" value={area} onChange={e => setArea(e.target.value)} placeholder="Expedição..." disabled={!isAtivo} />
-            </label>
-            <label>Responsável
-               <input type="text" value={responsavel} onChange={e => setResponsavel(e.target.value)} placeholder="Nome..." disabled={!isAtivo} />
-            </label>
-          </div>
-
-          <div style={{display: 'grid', gridTemplateColumns: '1fr 1fr', gap: '10px'}}>
-             <label>Turno
-               <input type="text" value={turno} onChange={e => setTurno(e.target.value)} placeholder="Dia/Noite..." disabled={!isAtivo} />
-             </label>
-             <label>Data Alvo
-               <input type="date" value={dataAlvo} onChange={e => setDataAlvo(e.target.value)} disabled={!isAtivo} />
-             </label>
-          </div>
-          
-          <hr style={{margin: '15px 0', border: '0', borderTop: '1px solid #eee'}}/>
-
-          {/* OBJETO DO PROBLEMA */}
-          <div style={{display: 'grid', gridTemplateColumns: '1fr 2fr', gap: '10px'}}>
-            <label>Tipo Objeto
-              <input type="text" value={tipoObjeto} onChange={e => setTipoObjeto(e.target.value)} placeholder="Produto, Máquina..." disabled={!isAtivo} />
-            </label>
-            <label>Descrição Objeto
-              <input type="text" value={descricaoObjeto} onChange={e => setDescricaoObjeto(e.target.value)} placeholder="Ex: Tomate Débora..." disabled={!isAtivo} />
-            </label>
-          </div>
-
-          <label>Problema (Descrição)
-            <textarea value={textoProblema} onChange={e => setTextoProblema(e.target.value)} rows={3} placeholder="Descreva o problema..." disabled={!isAtivo} />
-          </label>
-
-          {/* ANÁLISE E AÇÃO */}
-          <label>Causas (Hipóteses)
-             <textarea value={causas} onChange={e => setCausas(e.target.value)} rows={3} placeholder="Quais as prováveis causas?" disabled={!isAtivo} />
-          </label>
-
-          <label>Meta
-            <input type="text" value={meta} onChange={e => setMeta(e.target.value)} placeholder="Ex: Reduzir de X para Y..." disabled={!isAtivo} />
-          </label>
-
-          <div style={{display: 'grid', gridTemplateColumns: '1fr 1fr', gap: '10px'}}>
-             <label>Indicador Referência (Antes)
-               <input type="text" value={indicadorReferencia} onChange={e => setIndicadorReferencia(e.target.value)} placeholder="Ex: 8% atual" disabled={!isAtivo} />
-             </label>
-             <label>Indicador Desejado (Meta)
-               <input type="text" value={indicadorDesejado} onChange={e => setIndicadorDesejado(e.target.value)} placeholder="Ex: 4% alvo" disabled={!isAtivo} />
-             </label>
-          </div>
-
-          <label>Plano de Ação (Planejado)
-             <textarea value={planoAcao} onChange={e => setPlanoAcao(e.target.value)} rows={4} placeholder="O que será feito? (Passo a passo planejado)" disabled={!isAtivo} />
-          </label>
-
-          {isAtivo ? (
-            <div className="section-actions">
-              <button type="button" className="btn-secondary" onClick={handleCancelarPlan} disabled={savingPlan}>Cancelar</button>
-              <button type="button" className="btn-primary" onClick={handleSavePlan} disabled={savingPlan}>{savingPlan ? "Salvando..." : "Salvar Plan"}</button>
-            </div>
-          ) : <p className="section-readonly-hint">Plan apenas leitura.</p>}
-        </section>
-
-        {/* DO */}
-        <section className="form-section detail-card">
-          <h2>Do – execução</h2>
-          {doMessage && <div className="alert alert-success">{doMessage}</div>}
-          {!planOK && <div className="alert alert-error">Preencha o problema no Plan antes.</div>}
-
-          <fieldset disabled={!planOK || !isAtivo}>
-            <label>Ações realizadas (Prática)
-              <textarea value={doAcoes} onChange={e => setDoAcoes(e.target.value)} rows={4} placeholder="O que foi realmente executado?" />
-            </label>
-            <label>Quem fez
-              <input type="text" value={doQuem} onChange={e => setDoQuem(e.target.value)} placeholder="Responsável pela execução" />
-            </label>
-            <label>Quando fez
-              <input type="date" value={doQuando} onChange={e => setDoQuando(e.target.value)} />
-            </label>
-          </fieldset>
-
-          {isAtivo ? (
-            <div className="section-actions">
-              <button type="button" className="btn-secondary" onClick={handleCancelarDo} disabled={savingDo}>Cancelar</button>
-              <button type="button" className="btn-primary" onClick={handleSaveDo} disabled={savingDo || !planOK}>{savingDo ? "Salvando..." : "Salvar Do"}</button>
-            </div>
-          ) : <p className="section-readonly-hint">Do apenas leitura.</p>}
-        </section>
-      </div>
-
-      {/* GRID: CHECK | ACT */}
-      <div className="detail-grid">
-        {/* CHECK */}
-        <section className="form-section detail-card">
-          <h2>Check – resultados</h2>
-          {checkMessage && <div className="alert alert-success">{checkMessage}</div>}
-          {!doOK && <div className="alert alert-error">Finalize o Do para acessar o Check.</div>}
-
-          <fieldset disabled={!doOK || !isAtivo}>
-            <label>Indicadores Antes (Medição Real)
-              <textarea value={checkAntes} onChange={e => setCheckAntes(e.target.value)} rows={2} placeholder="Resultado medido antes..." />
-            </label>
-            <label>Indicadores Depois (Medição Real)
-              <textarea value={checkDepois} onChange={e => setCheckDepois(e.target.value)} rows={2} placeholder="Resultado medido depois..." />
-            </label>
-            <label>Observações
-              <textarea value={checkObs} onChange={e => setCheckObs(e.target.value)} rows={3} placeholder="Comparação e análise..." />
-            </label>
-          </fieldset>
-
-          {isAtivo ? (
-            <div className="section-actions">
-              <button type="button" className="btn-secondary" onClick={handleCancelarCheck} disabled={savingCheck}>Cancelar</button>
-              <button type="button" className="btn-primary" onClick={handleSaveCheck} disabled={savingCheck || !doOK}>{savingCheck ? "Salvando..." : "Salvar Check"}</button>
-            </div>
-          ) : <p className="section-readonly-hint">Check apenas leitura.</p>}
-        </section>
-
-        {/* ACT */}
-        <section className="form-section detail-card">
-          <h2>Act – padronizar ou ajustar</h2>
-          {actMessage && <div className="alert alert-success">{actMessage}</div>}
-          {!checkOK && <div className="alert alert-error">Registre o Check para acessar o Act.</div>}
-
-          <fieldset disabled={!checkOK || !isAtivo}>
-            <label>Funcionou?
-              <select value={actFuncionou} onChange={e => setActFuncionou(e.target.value)}>
-                <option value="">Selecione</option>
-                <option value="sim">Sim, funcionou</option>
-                <option value="nao">Não funcionou</option>
-              </select>
-            </label>
-            <label>Virou padrão? (Novo procedimento)
-              <textarea value={actPadrao} onChange={e => setActPadrao(e.target.value)} rows={3} placeholder="Como deve ser feito daqui pra frente?" />
-            </label>
-            <label>Lições aprendidas
-              <textarea value={actLicoes} onChange={e => setActLicoes(e.target.value)} rows={3} placeholder="O que aprendemos?" />
-            </label>
-          </fieldset>
-
-          {checkOK && actFuncionou === "nao" && isAtivo && (
-            <div style={{ marginTop: "12px" }}>
-              <button type="button" className="btn-secondary" onClick={handleReabrirCiclo} disabled={savingProject}>
-                {savingProject ? "Processando..." : "Abrir novo ciclo (Reiniciar)"}
-              </button>
-            </div>
+      {/* SEÇÃO CONTEXTO */}
+      <section className="context-section">
+        <div className="context-header">
+          <h3>📋 Contexto & Informações Gerais</h3>
+          {isAtivo && (
+            <button 
+              className="btn-text-edit"
+              onClick={() => setIsEditingContext(!isEditingContext)}
+            >
+              {isEditingContext ? "Cancelar Edição" : "✏️ Editar Contexto"}
+            </button>
           )}
+        </div>
 
-          {isAtivo ? (
-            <div className="section-actions">
-              <button type="button" className="btn-secondary" onClick={handleCancelarAct} disabled={savingAct}>Cancelar</button>
-              <button type="button" className="btn-primary" onClick={handleSaveAct} disabled={savingAct || !checkOK}>{savingAct ? "Salvando..." : "Salvar Act"}</button>
-            </div>
-          ) : <p className="section-readonly-hint">Act apenas leitura.</p>}
+        {!isEditingContext ? (
+          <div className="context-grid-visual">
+             <div className="ctx-item"><label>Categoria</label><strong>{categoria || "-"}</strong></div>
+             <div className="ctx-item"><label>Prioridade</label><span className={`badge-${prioridade?.toLowerCase()}`}>{prioridade || "-"}</span></div>
+             <div className="ctx-item"><label>Área</label><strong>{area || "-"}</strong></div>
+             <div className="ctx-item"><label>Responsável</label><strong>{responsavel || "-"}</strong></div>
+             <div className="ctx-item"><label>Turno</label><strong>{turno || "-"}</strong></div>
+             <div className="ctx-item"><label>Data Alvo</label><strong>{dataAlvo ? new Date(dataAlvo).toLocaleDateString('pt-BR') : "-"}</strong></div>
+             
+             <div className="ctx-item ctx-full">
+                <label>Objeto do Problema</label>
+                <div style={{display: 'flex', gap: '10px'}}>
+                  <span style={{fontWeight: 'bold', color: '#444'}}>{tipoObjeto || "N/A"}:</span>
+                  <span>{descricaoObjeto || "-"}</span>
+                </div>
+             </div>
+          </div>
+        ) : (
+          <div className="context-edit-form animate-fade-in">
+             <div className="form-grid-3">
+                <label>Categoria
+                   <select value={categoria} onChange={e => setCategoria(e.target.value)}>
+                      <option value="">Selecione...</option>
+                      <option value="Quebra / perda de produto">Quebra / perda de produto</option>
+                      <option value="Atraso / tempo">Atraso / tempo</option>
+                      <option value="Comunicação / alinhamento">Comunicação / alinhamento</option>
+                      <option value="Organização / processo">Organização / processo</option>
+                      <option value="Segurança / risco">Segurança / risco</option>
+                      <option value="Outro">Outro</option>
+                   </select>
+                </label>
+                <label>Prioridade
+                   <select value={prioridade} onChange={e => setPrioridade(e.target.value)}>
+                      <option value="Crítica">Crítica</option>
+                      <option value="Alta">Alta</option>
+                      <option value="Média">Média</option>
+                      <option value="Baixa">Baixa</option>
+                   </select>
+                </label>
+                <label>Data Alvo <input type="date" value={dataAlvo} onChange={e => setDataAlvo(e.target.value)} /></label>
+             </div>
+             <div className="form-grid-3">
+                <label>Área <input value={area} onChange={e => setArea(e.target.value)} /></label>
+                <label>Responsável <input value={responsavel} onChange={e => setResponsavel(e.target.value)} /></label>
+                <label>Turno <input value={turno} onChange={e => setTurno(e.target.value)} /></label>
+             </div>
+             <div className="form-grid-2">
+                <label>Tipo Objeto <input value={tipoObjeto} onChange={e => setTipoObjeto(e.target.value)} /></label>
+                <label>Desc. Objeto <input value={descricaoObjeto} onChange={e => setDescricaoObjeto(e.target.value)} /></label>
+             </div>
+             <div className="section-actions" style={{marginTop: '15px'}}>
+               <button type="button" className="btn-secondary" onClick={handleCancelarContext}>Cancelar</button>
+               <button type="button" className="btn-primary" onClick={handleSaveContext} disabled={savingPlan}>{savingPlan ? "Salvando..." : "Salvar Contexto"}</button>
+             </div>
+          </div>
+        )}
+      </section>
+
+      {/* GRID PDCA */}
+      <div className="pdca-cycle-grid">
+        <section className="form-section detail-card plan-card">
+          <div className="card-header-styled"><h2>Plan – Análise</h2></div>
+          {planMessage && <div className="alert alert-success">{planMessage}</div>}
+          <div className="card-content">
+             <label>Descrição do Problema <textarea value={textoProblema} onChange={e => setTextoProblema(e.target.value)} rows={3} disabled={!isAtivo} /></label>
+             <label>Causas (Hipóteses) <textarea value={causas} onChange={e => setCausas(e.target.value)} rows={3} disabled={!isAtivo} /></label>
+             <div className="form-grid-2">
+                <label>Indicador Antes <input value={indicadorReferencia} onChange={e => setIndicadorReferencia(e.target.value)} placeholder="Ref..." disabled={!isAtivo} /></label>
+                <label>Indicador Meta <input value={indicadorDesejado} onChange={e => setIndicadorDesejado(e.target.value)} placeholder="Alvo..." disabled={!isAtivo} /></label>
+             </div>
+             <label>Meta (Descritiva) <input value={meta} onChange={e => setMeta(e.target.value)} disabled={!isAtivo} /></label>
+             <label>Plano de Ação <textarea value={planoAcao} onChange={e => setPlanoAcao(e.target.value)} rows={4} disabled={!isAtivo} /></label>
+             {isAtivo && 
+                <div className="section-actions">
+                    <button type="button" className="btn-secondary" onClick={handleCancelarPlan} disabled={savingPlan}>Cancelar</button>
+                    <button type="button" className="btn-primary" onClick={handleSavePlan} disabled={savingPlan}>{savingPlan ? "Salvando..." : "Salvar Plan"}</button>
+                </div>
+             }
+          </div>
+        </section>
+
+        <section className="form-section detail-card do-card">
+          <div className="card-header-styled"><h2>Do – Execução</h2></div>
+          {doMessage && <div className="alert alert-success">{doMessage}</div>}
+          <div className="card-content">
+            <fieldset disabled={!planOK || !isAtivo} style={{border:'none', padding:0, margin:0}}>
+              <label>Ações Realizadas <textarea value={doAcoes} onChange={e => setDoAcoes(e.target.value)} rows={6}/></label>
+              <div className="form-grid-2">
+                 <label>Quem <input value={doQuem} onChange={e => setDoQuem(e.target.value)} /></label>
+                 <label>Quando <input type="date" value={doQuando} onChange={e => setDoQuando(e.target.value)} /></label>
+              </div>
+            </fieldset>
+            {isAtivo && <button className="btn-primary full-width" onClick={handleSaveDo} disabled={savingDo || !planOK}>{savingDo ? "Salvando..." : "Salvar Do"}</button>}
+          </div>
+        </section>
+
+        <section className="form-section detail-card check-card">
+          <div className="card-header-styled"><h2>Check – Resultados</h2></div>
+          {checkMessage && <div className="alert alert-success">{checkMessage}</div>}
+          <div className="card-content">
+            <fieldset disabled={!doOK || !isAtivo} style={{border:'none', padding:0, margin:0}}>
+              <label>Antes (Medição) <input value={checkAntes} onChange={e => setCheckAntes(e.target.value)} /></label>
+              <label>Depois (Medição) <input value={checkDepois} onChange={e => setCheckDepois(e.target.value)} /></label>
+              <label>Observações <textarea value={checkObs} onChange={e => setCheckObs(e.target.value)} rows={3} /></label>
+            </fieldset>
+            {isAtivo && <button className="btn-primary full-width" onClick={handleSaveCheck} disabled={savingCheck || !doOK}>{savingCheck ? "Salvando..." : "Salvar Check"}</button>}
+          </div>
+        </section>
+
+        <section className="form-section detail-card act-card">
+          <div className="card-header-styled"><h2>Act – Conclusão</h2></div>
+          {actMessage && <div className="alert alert-success">{actMessage}</div>}
+          <div className="card-content">
+            <fieldset disabled={!checkOK || !isAtivo} style={{border:'none', padding:0, margin:0}}>
+              <label>Funcionou? 
+                 <select value={actFuncionou} onChange={e => setActFuncionou(e.target.value)}>
+                    <option value="">Selecione</option>
+                    <option value="sim">Sim</option>
+                    <option value="nao">Não</option>
+                 </select>
+              </label>
+              <label>Padrão / Ajustes <textarea value={actPadrao} onChange={e => setActPadrao(e.target.value)} rows={3} /></label>
+              <label>Lições Aprendidas <textarea value={actLicoes} onChange={e => setActLicoes(e.target.value)} rows={3} /></label>
+            </fieldset>
+            {isAtivo && <button className="btn-primary full-width" onClick={handleSaveAct} disabled={savingAct || !checkOK}>{savingAct ? "Salvando..." : "Salvar Act"}</button>}
+          </div>
         </section>
       </div>
+
+      <style>{`
+        .context-section { background-color: #f8f9fa; border: 1px solid #dee2e6; border-radius: 8px; padding: 20px; margin-bottom: 25px; }
+        .context-header { display: flex; justify-content: space-between; align-items: center; margin-bottom: 15px; border-bottom: 1px solid #e9ecef; padding-bottom: 10px; }
+        .context-header h3 { margin: 0; font-size: 1.1rem; color: #495057; text-transform: uppercase; letter-spacing: 0.5px; }
+        .btn-text-edit { background: none; border: none; color: #667eea; cursor: pointer; font-weight: 600; font-size: 0.9rem; }
+        .btn-text-edit:hover { text-decoration: underline; }
+        .context-grid-visual { display: grid; grid-template-columns: repeat(auto-fit, minmax(150px, 1fr)); gap: 20px; }
+        .ctx-item label { display: block; font-size: 0.75rem; color: #888; text-transform: uppercase; margin-bottom: 4px; }
+        .ctx-item strong { font-size: 1rem; color: #212529; }
+        .ctx-full { grid-column: 1 / -1; margin-top: 10px; padding-top: 10px; border-top: 1px dashed #e9ecef; }
+        .pdca-cycle-grid { display: grid; grid-template-columns: 1fr 1fr; gap: 20px; }
+        @media (max-width: 768px) { .pdca-cycle-grid { grid-template-columns: 1fr; } }
+        .detail-card { background: white; border-radius: 8px; box-shadow: 0 2px 4px rgba(0,0,0,0.05); border: 1px solid #eee; display: flex; flex-direction: column; height: 100%; }
+        .plan-card { border-top: 4px solid #3b82f6; }
+        .do-card { border-top: 4px solid #f59e0b; }
+        .check-card { border-top: 4px solid #10b981; }
+        .act-card { border-top: 4px solid #8b5cf6; }
+        .card-header-styled { padding: 15px; border-bottom: 1px solid #f0f0f0; background: #fdfdfd; }
+        .card-header-styled h2 { margin: 0; font-size: 1.1rem; color: #333; }
+        .card-content { padding: 20px; flex-grow: 1; }
+        .full-width { width: 100%; margin-top: 15px; }
+        .form-grid-2 { display: grid; grid-template-columns: 1fr 1fr; gap: 15px; }
+        .form-grid-3 { display: grid; grid-template-columns: 1fr 1fr 1fr; gap: 15px; }
+        .section-actions { display: flex; gap: 10px; justify-content: flex-end; margin-top: 15px; }
+      `}</style>
     </div>
   );
 }
