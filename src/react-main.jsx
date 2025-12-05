@@ -2,9 +2,12 @@
 import React from "react";
 import ReactDOM from "react-dom/client";
 import { HashRouter } from "react-router-dom";
-import ReactApp from "./ReactApp.jsx";
-import { AuthProvider } from "./context/AuthContext.jsx";
 
+import { AuthProvider } from "./context/AuthContext.jsx";
+import ReactApp from "./ReactApp.jsx";
+
+// CSS principal da aplicação
+// aqui usamos style.css, que é o nome que você já usava antes
 import "./style.css";
 
 ReactDOM.createRoot(document.getElementById("root")).render(

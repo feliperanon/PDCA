@@ -1715,3 +1715,29 @@ textarea {
     justify-content: space-between;
   }
 }
+/* Estilos para a seção de IA */
+.ia-section h2 {
+  color: #2c3e50;
+  margin-bottom: 0.5rem;
+}
+
+.pdca-item-simple {
+  background: white;
+  border: 1px solid #eee;
+  padding: 10px;
+  margin-bottom: 8px;
+  border-radius: 6px;
+  list-style: none;
+}
+
+.pdca-item-simple a {
+  text-decoration: none;
+  color: #333;
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+}
+
+.pdca-list-simple {
+  padding: 0;
+}
