@@ -12,8 +12,9 @@ import { PdcaDashboardPage } from "./pages/PdcaDashboardPage.jsx";
 import { PdcaDetailPage } from "./pages/PdcaDetailPage.jsx";
 import { PdcaHistoricoPage } from "./pages/PdcaHistoricoPage.jsx";
 import { LoginPage } from "./pages/LoginPage.jsx";
-// IMPORTANTE: Importamos a nova página aqui
 import { OperationsLogPage } from "./pages/OperationsLogPage.jsx";
+// IMPORTANTE: Nova página de Inteligência
+import { AnalyticsDashboard } from "./pages/AnalyticsDashboard.jsx"; 
 
 import { Menu } from "./components/Menu.jsx";
 import { useAuth } from "./context/AuthContext.jsx";
@@ -96,12 +97,21 @@ export default function ReactApp() {
             }
           />
 
-          {/* AQUI ESTÁ A NOVA ROTA QUE FALTAVA */}
           <Route
             path="/operacoes"
             element={
               <RequireAuth>
                 <OperationsLogPage />
+              </RequireAuth>
+            }
+          />
+          
+          {/* NOVA ROTA DE INTELIGÊNCIA */}
+          <Route
+            path="/inteligencia"
+            element={
+              <RequireAuth>
+                <AnalyticsDashboard />
               </RequireAuth>
             }
           />

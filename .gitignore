@@ -22,3 +22,6 @@ dist-ssr
 *.njsproj
 *.sln
 *.sw?
+
+# --- IMPORTANTE: Ignorar chaves de API ---
+.env

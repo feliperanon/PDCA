@@ -1,18 +1,8 @@
 import React, { useState, useEffect } from 'react';
-import { 
-  collection, 
-  addDoc, 
-  onSnapshot, 
-  query, 
-  orderBy, 
-  doc, 
-  updateDoc, 
-  deleteDoc,
-  serverTimestamp 
-} from "firebase/firestore"; 
-import { db } from "../firebase"; // Certifique-se que este caminho está correto
+import { collection, addDoc } from "firebase/firestore"; 
+import { db } from "../firebase"; 
 
-// --- ÍCONES SVG (Mantidos exatamente iguais) ---
+// --- ÍCONES SVG ---
 const IconCheck = () => <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"><path d="M22 11.08V12a10 10 0 1 1-5.93-9.14"/><polyline points="22 4 12 14.01 9 11.01"/></svg>;
 const IconAlert = () => <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"><path d="m21.73 18-8-14a2 2 0 0 0-3.48 0l-8 14A2 2 0 0 0 4 21h16a2 2 0 0 0 1.73-3Z"/><line x1="12" y1="9" x2="12" y2="13"/><line x1="12" y1="17" x2="12.01" y2="17"/></svg>;
 const IconTrash = () => <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"><polyline points="3 6 5 6 21 6"/><path d="M19 6v14a2 2 0 0 1-2 2H7a2 2 0 0 1-2-2V6m3 0V4a2 2 0 0 1 2-2h4a2 2 0 0 1 2 2v2"/></svg>;
@@ -45,7 +35,7 @@ function calcularDataAlvo(prioridade) {
 
 export function OperationsLogPage() {
 
-    // --- CSS (Mantido) ---
+    // --- CSS ---
     const styles = `
         :root { --primary: #2563eb; --primary-dark: #1e40af; --danger: #dc2626; --success: #16a34a; --warning: #eab308; --bg: #f5f7fa; --surface: #ffffff; --text: #1f2937; --border: #e5e7eb; }
         body { font-family: 'Inter', -apple-system, sans-serif; background: var(--bg); color: var(--text); margin: 0; }
@@ -73,6 +63,7 @@ export function OperationsLogPage() {
         .main-textarea { width: 100%; border: 2px solid #e5e7eb; border-radius: 8px; padding: 15px; font-size: 16px; outline: none; transition: border 0.2s; resize: vertical; min-height: 100px; flex-grow: 1; }
         .main-textarea:focus { border-color: var(--primary); }
         
+        /* ESTILOS PARA OS CHIPS DE SELEÇÃO */
         .quick-tags { display: flex; gap: 8px; margin-top: 10px; flex-wrap: wrap; }
         .tag-chip { border: 1px solid #e5e7eb; background: white; padding: 6px 12px; border-radius: 20px; font-size: 12px; font-weight: 600; cursor: pointer; display: flex; align-items: center; gap: 6px; color: #6b7280; transition: all 0.2s; }
         .tag-chip:hover { background: #f9fafb; border-color: #d1d5db; }
@@ -98,6 +89,7 @@ export function OperationsLogPage() {
         .timeline-header { padding: 15px 20px; border-bottom: 1px solid #eee; display: flex; justify-content: space-between; align-items: center; background: #fff; }
         .timeline-actions { display: flex; gap: 10px; align-items: center; }
         
+        /* Botão Novo PDCA Lindo */
         .btn-new-pdca { background: var(--primary); color: white; border: none; padding: 8px 16px; border-radius: 6px; font-size: 13px; font-weight: 600; cursor: pointer; display: flex; align-items: center; gap: 6px; transition: all 0.2s; box-shadow: 0 2px 4px rgba(37, 99, 235, 0.2); }
         .btn-new-pdca:hover { background: var(--primary-dark); transform: translateY(-1px); }
         
@@ -127,6 +119,7 @@ export function OperationsLogPage() {
         .icon-btn { border: 1px solid transparent; background: transparent; cursor: pointer; padding: 5px; border-radius: 6px; color: #9ca3af; transition: all 0.2s; display: flex; align-items: center; justify-content: center; }
         .icon-btn:hover { background: #f3f4f6; color: #1f2937; border-color: #e5e7eb; }
         
+        /* Botão PDCA na linha (Raio) */
         .btn-row-pdca { color: var(--primary); background: #eff6ff; border: 1px solid #dbeafe; }
         .btn-row-pdca:hover { background: var(--primary); color: white; border-color: var(--primary); }
         
@@ -156,10 +149,12 @@ export function OperationsLogPage() {
     `;
 
     // --- ESTADOS ---
-    // Agora iniciamos com array vazio, pois virá do Firebase
-    const [logs, setLogs] = useState([]);
+    const [logs, setLogs] = useState(() => {
+        try { return JSON.parse(localStorage.getItem('ops_logs_vitalicio')) || []; } catch { return []; }
+    });
 
     const [inputTexto, setInputTexto] = useState('');
+    // ESTADO: Tipo Manual (Botoes de Tag)
     const [tipoManual, setTipoManual] = useState(null); 
     const [alertaOntem, setAlertaOntem] = useState(null);
     
@@ -177,51 +172,35 @@ export function OperationsLogPage() {
         metaDescritiva: '', 
         planoAcao: '', 
         tipo: '',
-        tipoObjeto: '', 
-        descricaoObjeto: '' 
+        tipoObjeto: '', // NOVO
+        descricaoObjeto: '' // NOVO
     });
     const [editForm, setEditForm] = useState({ id: null, textoOriginal: '', tipo: '' });
 
-    // --- EFEITOS (FIRESTORE) ---
-    // Este efeito substitui o localStorage. Ele ouve o banco de dados em tempo real.
-    // Se o WhatsApp inserir algo lá, este código vai atualizar a tela na mesma hora.
+    // --- EFEITOS ---
     useEffect(() => {
-        const q = query(collection(db, "operation_logs"), orderBy("timestamp", "desc"));
-        
-        const unsubscribe = onSnapshot(q, (snapshot) => {
-            const logsData = snapshot.docs.map(doc => ({
-                id: doc.id,
-                ...doc.data()
-            }));
-            setLogs(logsData);
-            verificarOntem(logsData);
-        }, (error) => {
-            console.error("Erro ao buscar logs:", error);
-        });
+        localStorage.setItem('ops_logs_vitalicio', JSON.stringify(logs));
+        verificarOntem();
+    }, [logs]);
 
-        return () => unsubscribe();
-    }, []);
-
-    const verificarOntem = (logsAtuais) => {
+    const verificarOntem = () => {
         const hoje = new Date();
         const ontem = new Date(hoje);
         ontem.setDate(ontem.getDate() - 1);
         const dataOntem = ontem.toLocaleDateString(); 
 
-        const errosOntem = logsAtuais.filter(l => l.data === dataOntem && l.tipo.includes('Erro'));
+        const errosOntem = logs.filter(l => l.data === dataOntem && l.tipo.includes('Erro'));
         
         if (errosOntem.length > 0) {
             setAlertaOntem(`Morning Call: Ontem tivemos ${errosOntem.length} ocorrências críticas. Verificar passagem de turno.`);
-        } else {
-            setAlertaOntem(null);
         }
     };
 
     // --- INTELIGÊNCIA BÁSICA (Categorização) ---
     const analisarTexto = (texto) => {
         const t = texto.toLowerCase();
-        let cat = 'Operacional'; 
-        let tipo = 'Planejamento / Decisão do dia'; 
+        let cat = 'Operacional'; // Default
+        let tipo = 'Planejamento / Decisão do dia'; // Default
         let cliente = 'Geral';
 
         // Categorias
@@ -233,7 +212,7 @@ export function OperationsLogPage() {
         else if (t.includes('manutencao') || t.includes('obra')) cat = 'Manutenção';
         else if (t.includes('ti') || t.includes('sistema') || t.includes('net')) cat = 'TI';
 
-        // Tipos 
+        // Tipos (Prioridade para palavras chave se não houver manual)
         if (t.includes('melhoria') || t.includes('ideia') || t.includes('sugestao')) tipo = 'Melhoria / Oportunidade';
         else if (t.includes('erro') || t.includes('falha') || t.includes('esqueci')) tipo = 'Erro / Falha operacional';
         else if (t.includes('alerta') || t.includes('risco') || t.includes('atraso')) tipo = 'Alerta / Risco';
@@ -241,7 +220,6 @@ export function OperationsLogPage() {
         else if (t.includes('falta') || t.includes('acabou') || t.includes('ruptura')) tipo = 'Ruptura / Disponibilidade';
         else if (t.includes('cliente') || t.includes('reclamacao')) tipo = 'Cliente / Reclamação';
         else if (t.includes('treinamento') || t.includes('curso')) tipo = 'Treinamento / Capacitação';
-        else if (t.includes('whatsapp')) tipo = 'WhatsApp / Externo'; // Nova categoria para IA
         
         // Clientes
         if (t.includes('verdemar')) cliente = 'Verdemar';
@@ -252,93 +230,85 @@ export function OperationsLogPage() {
         return { categoria: cat, tipoSugerido: tipo, cliente: cliente };
     };
 
-    // FUNÇÃO ATUALIZADA: Salva no Firebase
-    const registrarNovo = async () => {
+    const registrarNovo = () => {
         if (!inputTexto.trim()) return;
         
         const analise = analisarTexto(inputTexto);
+        
+        // Se o usuário clicou num botão, usa o tipo dele. Senão, usa a IA.
         const tipoFinal = tipoManual ? tipoManual : analise.tipoSugerido;
 
-        try {
-            await addDoc(collection(db, "operation_logs"), {
-                data: new Date().toLocaleDateString(),
-                hora: new Date().toLocaleTimeString(),
-                timestamp: serverTimestamp(), // Hora do servidor é mais segura
-                textoOriginal: inputTexto,
-                categoria: analise.categoria, 
-                cliente: analise.cliente,
-                tipo: tipoFinal,
-                origem: "web"
-            });
-            
-            setInputTexto('');
-            setTipoManual(null);
-        } catch (error) {
-            console.error("Erro ao salvar log:", error);
-            alert("Erro de conexão ao salvar.");
-        }
+        const novoLog = {
+            id: Date.now() + Math.random(),
+            data: new Date().toLocaleDateString(),
+            hora: new Date().toLocaleTimeString(),
+            timestamp: new Date(),
+            textoOriginal: inputTexto,
+            categoria: analise.categoria, 
+            cliente: analise.cliente,
+            tipo: tipoFinal
+        };
+        setLogs([novoLog, ...logs]);
+        setInputTexto('');
+        setTipoManual(null); // Reseta o botão
     };
 
+    // --- SELEÇÃO MANUAL (Quick Tags) ---
     const toggleTipoManual = (tipo) => {
         if (tipoManual === tipo) setTipoManual(null);
         else setTipoManual(tipo);
     };
 
+    // --- EDIÇÃO (EM MODAL) ---
     const abrirModalEdicao = (log) => {
         setEditForm({ id: log.id, textoOriginal: log.textoOriginal, tipo: log.tipo });
         setShowEditModal(true);
     };
 
-    // FUNÇÃO ATUALIZADA: Edita no Firebase
-    const salvarEdicao = async () => {
+    const salvarEdicao = () => {
         const analise = analisarTexto(editForm.textoOriginal);
-        
-        try {
-            const logRef = doc(db, "operation_logs", editForm.id);
-            await updateDoc(logRef, {
-                textoOriginal: editForm.textoOriginal,
-                tipo: editForm.tipo,
-                categoria: analise.categoria,
-                cliente: analise.cliente
-            });
-            setShowEditModal(false);
-        } catch (error) {
-            console.error("Erro ao editar:", error);
-            alert("Erro ao salvar edição.");
+        setLogs(logs.map(log => 
+            log.id === editForm.id 
+            ? { ...log, textoOriginal: editForm.textoOriginal, tipo: editForm.tipo, categoria: analise.categoria, cliente: analise.cliente } 
+            : log
+        ));
+        setShowEditModal(false);
+    };
+
+    const excluirLog = (id) => {
+        if(window.confirm('Excluir este registro?')) {
+            setLogs(logs.filter(l => l.id !== id));
         }
     };
 
-    // FUNÇÃO ATUALIZADA: Deleta no Firebase
-    const excluirLog = async (id) => {
-        if(window.confirm('Excluir este registro permanentemente?')) {
-            try {
-                await deleteDoc(doc(db, "operation_logs", id));
-            } catch (error) {
-                console.error("Erro ao excluir:", error);
-            }
-        }
-    };
-
-    // ... (gerarSugestaoPDCA, abrirModalPDCA mantidos iguais ao seu código original) ...
+    // --- PDCA NO FIREBASE COM IA (PREENCHIMENTO INTELIGENTE ATUALIZADO) ---
     const gerarSugestaoPDCA = (texto, tipo) => {
         const t = texto ? texto.toLowerCase() : "";
+        
+        // Valores Padrão (Fallback)
         let sugestao = { 
             causas: "1. Causa raiz não identificada.\n2. Falta de processo padrão.", 
             plano: "1. Investigar ocorrência.\n2. Definir novo padrão operacional.",
-            tipoObjeto: "Processo", 
-            descObjeto: "Processo Operacional" 
+            tipoObjeto: "Processo", // Default
+            descObjeto: "Processo Operacional" // Default
         };
 
+        // --- Lógica de Objeto ---
         if (t.includes('caminhao') || t.includes('veiculo') || t.includes('frota')) {
-            sugestao.tipoObjeto = "Veículo / Frota"; sugestao.descObjeto = "Veículo envolvido na ocorrência";
+            sugestao.tipoObjeto = "Veículo / Frota";
+            sugestao.descObjeto = "Veículo envolvido na ocorrência";
         } else if (t.includes('empilhadeira') || t.includes('maquina') || t.includes('esteira')) {
-            sugestao.tipoObjeto = "Equipamento"; sugestao.descObjeto = "Equipamento em falha";
+            sugestao.tipoObjeto = "Equipamento";
+            sugestao.descObjeto = "Equipamento em falha";
         } else if (t.includes('sistema') || t.includes('computador') || t.includes('internet') || t.includes('rede')) {
-            sugestao.tipoObjeto = "Sistema / TI"; sugestao.descObjeto = "Sistema ou Hardware";
+            sugestao.tipoObjeto = "Sistema / TI";
+            sugestao.descObjeto = "Sistema ou Hardware";
         } else if (t.includes('colaborador') || t.includes('funcionario') || t.includes('equipe') || t.includes('motorista')) {
-            sugestao.tipoObjeto = "Pessoas / Equipe"; sugestao.descObjeto = "Colaborador ou Turno";
+            sugestao.tipoObjeto = "Pessoas / Equipe";
+            sugestao.descObjeto = "Colaborador ou Turno";
         }
 
+        // --- Lógica de Causas e Plano ---
         if (t.includes('caminhao') || t.includes('frota') || t.includes('pneu') || t.includes('quebra') || t.includes('manutencao')) {
             sugestao.causas = "1. Desgaste natural da peça ou componente.\n2. Falta de manutenção preventiva.\n3. Más condições da via de transporte.";
             sugestao.plano = "1. Enviar veículo para oficina credenciada imediatamente.\n2. Atualizar checklist de saída dos motoristas.\n3. Revisar plano de manutenção da frota.";
@@ -368,41 +338,46 @@ export function OperationsLogPage() {
         let tipoBase = '';
         let idOrigem = null;
 
+        // CENÁRIO 1: Objeto de Log (Clique no botão de Raio na tabela)
         if (typeof origem === 'object' && origem !== null && origem.textoOriginal) {
             textoBase = origem.textoOriginal;
             tipoBase = origem.tipo;
             idOrigem = origem.id;
         } 
+        // CENÁRIO 2: Automático (Botão de Alerta Crítico)
         else if (origem === 'auto') {
             const erroHoje = logs.find(l => l.data === new Date().toLocaleDateString() && l.tipo.includes('Erro'));
             textoBase = erroHoje ? erroHoje.textoOriginal : 'Erro operacional crítico detectado no turno.';
             tipoBase = erroHoje ? erroHoje.tipo : 'Erro / Falha operacional';
             idOrigem = erroHoje ? erroHoje.id : null;
         } 
+        // CENÁRIO 3: Manual (Botão Novo PDCA)
         else {
             textoBase = ''; 
             tipoBase = '';
         }
 
+        // GERA A SUGESTÃO INTELIGENTE
         const sugestoes = gerarSugestaoPDCA(textoBase, tipoBase);
 
         setPdcaForm({
             logId: idOrigem,
-            descricao: textoBase,
-            causas: sugestoes.causas,
+            descricao: textoBase,        // Preenche Problema com o texto original
+            causas: sugestoes.causas,    // Preenche Causas com a IA
             indicadorAntes: '', 
             indicadorMeta: '',
             metaDescritiva: 'Eliminar a causa raiz e evitar reincidência.',
-            planoAcao: sugestoes.plano,
-            tipo: tipoBase,
-            tipoObjeto: sugestoes.tipoObjeto,
-            descricaoObjeto: sugestoes.descObjeto
+            planoAcao: sugestoes.plano,   // Preenche Plano com a IA
+            tipo: tipoBase, // Guarda o tipo para a lógica de prioridade
+            tipoObjeto: sugestoes.tipoObjeto, // NOVO
+            descricaoObjeto: sugestoes.descObjeto // NOVO
         });
         setShowPdcaModal(true);
     };
 
     const confirmarSalvarPDCA = async () => {
         try {
+            // 1. Definir Prioridade baseada no tipo (IA Simples)
             let prioridadeSugerida = "Média";
             const tipo = pdcaForm.tipo || ""; 
             
@@ -413,6 +388,7 @@ export function OperationsLogPage() {
                 prioridadeSugerida = "Crítica";
             }
 
+            // 2. Calcular Data Alvo
             const dataCalculada = calcularDataAlvo(prioridadeSugerida);
 
             const novoPDCA = {
@@ -421,16 +397,18 @@ export function OperationsLogPage() {
                 status: "Planejando",
                 situacao: "ativo",
                 criadoEm: new Date().toISOString(),
+                // Removemos 'responsavel' e 'turno' daqui
                 plan: {
                     area: "Operações",
-                    prioridade: prioridadeSugerida,
-                    dataAlvo: dataCalculada,
+                    prioridade: prioridadeSugerida, // Salva a prioridade
+                    dataAlvo: dataCalculada,        // Salva a data calculada
                     problema: pdcaForm.descricao,
                     causas: pdcaForm.causas,
                     indicadorAntes: pdcaForm.indicadorAntes,
                     indicadorMeta: pdcaForm.indicadorMeta,
                     meta: pdcaForm.metaDescritiva,
                     planoAcao: pdcaForm.planoAcao,
+                    // Novos campos salvos no Plan
                     tipoObjeto: pdcaForm.tipoObjeto,
                     descricaoObjeto: pdcaForm.descricaoObjeto
                 }
@@ -479,8 +457,17 @@ export function OperationsLogPage() {
         return 'badge-Outros';
     };
 
-    // FUNÇÃO ATUALIZADA: Simulação agora salva no Firebase para testar o sistema real
-    const simularMensagemWhatsApp = async () => {
+    const gerarDadosOntem = () => {
+        const ontem = new Date();
+        ontem.setDate(ontem.getDate() - 1);
+        const dataOntem = ontem.toLocaleDateString();
+        const logsTeste = [{ id: Date.now() + Math.random(), data: dataOntem, hora: '14:30:00', tipo: 'Erro / Falha operacional', categoria: 'RH', cliente: 'Geral', textoOriginal: 'Falta de pessoal na expedição noturna' }];
+        setLogs([...logs, ...logsTeste]);
+        alert("Dados de ontem gerados! O Morning Call deve aparecer.");
+    };
+
+    // --- SIMULAÇÃO DE WHATSAPP (INTEGRAÇÃO Z-API) ---
+    const simularMensagemWhatsApp = () => {
         const mensagensExemplo = [
             "Esteira 03 parou de funcionar agora - Enviado por João (Manutenção)",
             "Caminhão da Placa HGB-1234 chegou com atraso de 2h - Enviado por Portaria",
@@ -489,28 +476,18 @@ export function OperationsLogPage() {
         ];
         const msgAleatoria = mensagensExemplo[Math.floor(Math.random() * mensagensExemplo.length)];
         
-        const analise = analisarTexto(msgAleatoria);
-
-        try {
-            await addDoc(collection(db, "operation_logs"), {
-                data: new Date().toLocaleDateString(),
-                hora: new Date().toLocaleTimeString(),
-                timestamp: serverTimestamp(),
-                textoOriginal: `[WhatsApp] ${msgAleatoria}`,
-                categoria: analise.categoria, 
-                cliente: analise.cliente,
-                tipo: 'Alerta / Risco', // Assume risco por padrão no zap
-                origem: "whatsapp_simulado"
-            });
-            alert("Simulação enviada para o Banco de Dados (Firebase)!");
-        } catch (error) {
-            console.error(error);
-        }
-    };
-
-    // Dados de Ontem (apenas simulação local visual, ou pode criar no banco com data retroativa)
-    const gerarDadosOntem = () => {
-        alert("Para testar Morning Call real, insira dados no Firebase com a data de ontem.");
+        const novoLogZap = {
+            id: Date.now() + Math.random(),
+            data: new Date().toLocaleDateString(),
+            hora: new Date().toLocaleTimeString(),
+            timestamp: new Date(),
+            textoOriginal: `[WhatsApp] ${msgAleatoria}`,
+            categoria: 'Comunicação / WhatsApp',
+            cliente: 'Geral',
+            tipo: 'Alerta / Risco'
+        };
+        setLogs([novoLogZap, ...logs]);
+        alert("Nova mensagem recebida via WhatsApp!");
     };
 
     return (
@@ -522,8 +499,9 @@ export function OperationsLogPage() {
                     <h1 style={{margin:0, fontSize:'20px'}}>Diário de Operações</h1>
                     <span style={{color:'#666', fontSize:'13px'}}>{new Date().toLocaleDateString(undefined, {weekday:'long', day:'numeric', month:'long'})}</span>
                     <div style={{display:'flex', gap:'5px', marginTop:'5px'}}>
+                        <button onClick={gerarDadosOntem} style={{fontSize:'10px', cursor:'pointer', border:'1px dashed #ccc', background:'none'}}>Teste Morning Call</button>
                         <button onClick={simularMensagemWhatsApp} style={{fontSize:'10px', cursor:'pointer', border:'1px solid #25D366', color:'#25D366', background:'white', borderRadius:'4px', display:'flex', alignItems:'center', gap:'4px'}}>
-                            <IconWhatsapp /> Testar Integração (Firebase)
+                            <IconWhatsapp /> Simular Msg WhatsApp
                         </button>
                     </div>
                 </div>
@@ -571,6 +549,7 @@ export function OperationsLogPage() {
                         onKeyDown={(e) => e.key === 'Enter' && !e.shiftKey && (e.preventDefault(), registrarNovo())}
                     />
                     
+                    {/* --- BOTÕES DE SELEÇÃO RÁPIDA --- */}
                     <div className="quick-tags">
                         <div 
                             className={`tag-chip ${tipoManual === 'Melhoria / Oportunidade' ? 'active-ideia' : ''}`} 
@@ -591,6 +570,7 @@ export function OperationsLogPage() {
                             🤖 Auto (IA)
                         </div>
                     </div>
+                    {/* ---------------------------------- */}
 
                     <button className="btn-magic" onClick={registrarNovo}>Registrar Ocorrência</button>
                     <div style={{fontSize:'11px', color:'#9ca3af', marginTop:'10px', textAlign:'center'}}>
@@ -614,7 +594,7 @@ export function OperationsLogPage() {
                             <p>Nenhum erro crítico registrado hoje.</p>
                         </div>
                     )}
-                    <div className="history-stat">Total no Banco de Dados: {logs.length} registros</div>
+                    <div className="history-stat">Total Histórico: {logs.length} registros</div>
                 </div>
             </div>
 
@@ -625,6 +605,7 @@ export function OperationsLogPage() {
                         <button className="btn-new-pdca" onClick={() => abrirModalPDCA('manual')}>
                             <IconPlus/> Novo PDCA
                         </button>
+                        <button onClick={() => {if(window.confirm('Limpar histórico vitalício?')) setLogs([])}} style={{background:'none', border:'none', fontSize:'11px', color:'#999', cursor:'pointer'}}>Limpar</button>
                     </div>
                 </div>
                 <table>
@@ -640,6 +621,7 @@ export function OperationsLogPage() {
                                 <td><b>{log.cliente}:</b> {log.textoOriginal}</td>
                                 <td>
                                     <div className="actions">
+                                        {/* Botão de Ação PDCA na Linha */}
                                         <button className="icon-btn btn-row-pdca" title="Gerar PDCA com IA" onClick={() => abrirModalPDCA(log)}>
                                             <IconBolt width="14" height="14" />
                                         </button>
@@ -686,6 +668,7 @@ export function OperationsLogPage() {
                                 <textarea className="modal-textarea" rows="2" value={pdcaForm.descricao} onChange={(e) => setPdcaForm({...pdcaForm, descricao: e.target.value})} />
                             </div>
                             
+                            {/* NOVOS CAMPOS: Tipo e Descrição do Objeto */}
                             <div className="form-grid-2">
                                 <div>
                                     <label className="modal-label">Tipo Objeto (IA)</label>

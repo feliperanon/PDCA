@@ -1,18 +1,8 @@
 import React, { useState, useEffect } from 'react';
-import { 
-  collection, 
-  addDoc, 
-  onSnapshot, 
-  query, 
-  orderBy, 
-  doc, 
-  updateDoc, 
-  deleteDoc,
-  serverTimestamp 
-} from "firebase/firestore"; 
-import { db } from "../firebase"; // Certifique-se que este caminho está correto
+import { collection, addDoc, onSnapshot, query, orderBy, deleteDoc, updateDoc, doc } from "firebase/firestore"; 
+import { db } from "../firebase"; 
 
-// --- ÍCONES SVG (Mantidos exatamente iguais) ---
+// --- ÍCONES SVG ---
 const IconCheck = () => <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"><path d="M22 11.08V12a10 10 0 1 1-5.93-9.14"/><polyline points="22 4 12 14.01 9 11.01"/></svg>;
 const IconAlert = () => <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"><path d="m21.73 18-8-14a2 2 0 0 0-3.48 0l-8 14A2 2 0 0 0 4 21h16a2 2 0 0 0 1.73-3Z"/><line x1="12" y1="9" x2="12" y2="13"/><line x1="12" y1="17" x2="12.01" y2="17"/></svg>;
 const IconTrash = () => <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"><polyline points="3 6 5 6 21 6"/><path d="M19 6v14a2 2 0 0 1-2 2H7a2 2 0 0 1-2-2V6m3 0V4a2 2 0 0 1 2-2h4a2 2 0 0 1 2 2v2"/></svg>;
@@ -45,7 +35,7 @@ function calcularDataAlvo(prioridade) {
 
 export function OperationsLogPage() {
 
-    // --- CSS (Mantido) ---
+    // --- CSS ---
     const styles = `
         :root { --primary: #2563eb; --primary-dark: #1e40af; --danger: #dc2626; --success: #16a34a; --warning: #eab308; --bg: #f5f7fa; --surface: #ffffff; --text: #1f2937; --border: #e5e7eb; }
         body { font-family: 'Inter', -apple-system, sans-serif; background: var(--bg); color: var(--text); margin: 0; }
@@ -156,126 +146,93 @@ export function OperationsLogPage() {
     `;
 
     // --- ESTADOS ---
-    // Agora iniciamos com array vazio, pois virá do Firebase
     const [logs, setLogs] = useState([]);
-
     const [inputTexto, setInputTexto] = useState('');
     const [tipoManual, setTipoManual] = useState(null); 
     const [alertaOntem, setAlertaOntem] = useState(null);
     
-    // Controle de Modais
+    // Modais
     const [showPdcaModal, setShowPdcaModal] = useState(false);
     const [showEditModal, setShowEditModal] = useState(false);
     
-    // Formulários
+    // Forms
     const [pdcaForm, setPdcaForm] = useState({ 
-        logId: null, 
-        descricao: '', 
-        causas: '', 
-        indicadorAntes: '', 
-        indicadorMeta: '', 
-        metaDescritiva: '', 
-        planoAcao: '', 
-        tipo: '',
-        tipoObjeto: '', 
-        descricaoObjeto: '' 
+        logId: null, descricao: '', causas: '', indicadorAntes: '', indicadorMeta: '', 
+        metaDescritiva: '', planoAcao: '', tipo: '', tipoObjeto: '', descricaoObjeto: '' 
     });
     const [editForm, setEditForm] = useState({ id: null, textoOriginal: '', tipo: '' });
 
-    // --- EFEITOS (FIRESTORE) ---
-    // Este efeito substitui o localStorage. Ele ouve o banco de dados em tempo real.
-    // Se o WhatsApp inserir algo lá, este código vai atualizar a tela na mesma hora.
+    // --- FIREBASE LISTENER (TEMPO REAL) ---
     useEffect(() => {
-        const q = query(collection(db, "operation_logs"), orderBy("timestamp", "desc"));
-        
+        const q = query(collection(db, "logs_operacionais"), orderBy("timestamp", "desc"));
         const unsubscribe = onSnapshot(q, (snapshot) => {
-            const logsData = snapshot.docs.map(doc => ({
-                id: doc.id,
-                ...doc.data()
-            }));
+            const logsData = snapshot.docs.map(doc => ({ ...doc.data(), id: doc.id }));
             setLogs(logsData);
             verificarOntem(logsData);
-        }, (error) => {
-            console.error("Erro ao buscar logs:", error);
         });
-
         return () => unsubscribe();
     }, []);
 
-    const verificarOntem = (logsAtuais) => {
+    const verificarOntem = (dadosLogs) => {
         const hoje = new Date();
         const ontem = new Date(hoje);
         ontem.setDate(ontem.getDate() - 1);
-        const dataOntem = ontem.toLocaleDateString(); 
+        const dataOntem = ontem.toLocaleDateString('pt-BR'); 
 
-        const errosOntem = logsAtuais.filter(l => l.data === dataOntem && l.tipo.includes('Erro'));
-        
+        const errosOntem = dadosLogs.filter(l => l.data === dataOntem && l.tipo.includes('Erro'));
         if (errosOntem.length > 0) {
-            setAlertaOntem(`Morning Call: Ontem tivemos ${errosOntem.length} ocorrências críticas. Verificar passagem de turno.`);
+            setAlertaOntem(`Morning Call: Ontem tivemos ${errosOntem.length} ocorrências críticas.`);
         } else {
             setAlertaOntem(null);
         }
     };
 
-    // --- INTELIGÊNCIA BÁSICA (Categorização) ---
+    // --- INTELIGÊNCIA ---
     const analisarTexto = (texto) => {
         const t = texto.toLowerCase();
         let cat = 'Operacional'; 
         let tipo = 'Planejamento / Decisão do dia'; 
         let cliente = 'Geral';
 
-        // Categorias
-        if (t.includes('rh') || t.includes('falt') || t.includes('atestad') || t.includes('ferias')) cat = 'RH';
-        else if (t.includes('frota') || t.includes('caminhao') || t.includes('veiculo') || t.includes('pneu') || t.includes('motorista')) cat = 'Frota';
-        else if (t.includes('qualidade') || t.includes('avaria') || t.includes('devolucao') || t.includes('cliente')) cat = 'Qualidade';
-        else if (t.includes('juridico') || t.includes('processo')) cat = 'Jurídico';
-        else if (t.includes('logistica') || t.includes('expedicao') || t.includes('recebimento') || t.includes('estoque')) cat = 'Logística';
+        if (t.includes('rh') || t.includes('falt') || t.includes('atestad')) cat = 'RH';
+        else if (t.includes('frota') || t.includes('caminhao') || t.includes('pneu')) cat = 'Frota';
+        else if (t.includes('qualidade') || t.includes('avaria') || t.includes('cliente')) cat = 'Qualidade';
+        else if (t.includes('logistica') || t.includes('expedicao') || t.includes('estoque')) cat = 'Logística';
         else if (t.includes('manutencao') || t.includes('obra')) cat = 'Manutenção';
         else if (t.includes('ti') || t.includes('sistema') || t.includes('net')) cat = 'TI';
 
-        // Tipos 
-        if (t.includes('melhoria') || t.includes('ideia') || t.includes('sugestao')) tipo = 'Melhoria / Oportunidade';
-        else if (t.includes('erro') || t.includes('falha') || t.includes('esqueci')) tipo = 'Erro / Falha operacional';
-        else if (t.includes('alerta') || t.includes('risco') || t.includes('atraso')) tipo = 'Alerta / Risco';
-        else if (t.includes('quebra') || t.includes('dano') || t.includes('perda')) tipo = 'Quebra / Perda';
-        else if (t.includes('falta') || t.includes('acabou') || t.includes('ruptura')) tipo = 'Ruptura / Disponibilidade';
-        else if (t.includes('cliente') || t.includes('reclamacao')) tipo = 'Cliente / Reclamação';
-        else if (t.includes('treinamento') || t.includes('curso')) tipo = 'Treinamento / Capacitação';
-        else if (t.includes('whatsapp')) tipo = 'WhatsApp / Externo'; // Nova categoria para IA
+        if (t.includes('melhoria') || t.includes('ideia')) tipo = 'Melhoria / Oportunidade';
+        else if (t.includes('erro') || t.includes('falha')) tipo = 'Erro / Falha operacional';
+        else if (t.includes('alerta') || t.includes('risco')) tipo = 'Alerta / Risco';
+        else if (t.includes('quebra') || t.includes('dano')) tipo = 'Quebra / Perda';
+        else if (t.includes('falta') || t.includes('acabou')) tipo = 'Ruptura / Disponibilidade';
         
-        // Clientes
         if (t.includes('verdemar')) cliente = 'Verdemar';
-        else if (t.includes('rena')) cliente = 'Rena';
         else if (t.includes('carrefour')) cliente = 'Carrefour';
-        else if (t.includes('epa')) cliente = 'EPA';
 
         return { categoria: cat, tipoSugerido: tipo, cliente: cliente };
     };
 
-    // FUNÇÃO ATUALIZADA: Salva no Firebase
     const registrarNovo = async () => {
         if (!inputTexto.trim()) return;
-        
         const analise = analisarTexto(inputTexto);
         const tipoFinal = tipoManual ? tipoManual : analise.tipoSugerido;
 
         try {
-            await addDoc(collection(db, "operation_logs"), {
-                data: new Date().toLocaleDateString(),
-                hora: new Date().toLocaleTimeString(),
-                timestamp: serverTimestamp(), // Hora do servidor é mais segura
+            await addDoc(collection(db, "logs_operacionais"), {
+                data: new Date().toLocaleDateString('pt-BR'),
+                hora: new Date().toLocaleTimeString('pt-BR'),
+                timestamp: new Date(),
                 textoOriginal: inputTexto,
                 categoria: analise.categoria, 
                 cliente: analise.cliente,
-                tipo: tipoFinal,
-                origem: "web"
+                tipo: tipoFinal
             });
-            
             setInputTexto('');
             setTipoManual(null);
-        } catch (error) {
-            console.error("Erro ao salvar log:", error);
-            alert("Erro de conexão ao salvar.");
+        } catch (e) {
+            console.error("Erro ao adicionar:", e);
+            alert("Erro ao salvar no banco de dados.");
         }
     };
 
@@ -284,104 +241,76 @@ export function OperationsLogPage() {
         else setTipoManual(tipo);
     };
 
+    // --- EDIÇÃO / EXCLUSÃO ---
     const abrirModalEdicao = (log) => {
         setEditForm({ id: log.id, textoOriginal: log.textoOriginal, tipo: log.tipo });
         setShowEditModal(true);
     };
 
-    // FUNÇÃO ATUALIZADA: Edita no Firebase
     const salvarEdicao = async () => {
         const analise = analisarTexto(editForm.textoOriginal);
-        
         try {
-            const logRef = doc(db, "operation_logs", editForm.id);
-            await updateDoc(logRef, {
+            await updateDoc(doc(db, "logs_operacionais", editForm.id), {
                 textoOriginal: editForm.textoOriginal,
                 tipo: editForm.tipo,
                 categoria: analise.categoria,
                 cliente: analise.cliente
             });
             setShowEditModal(false);
-        } catch (error) {
-            console.error("Erro ao editar:", error);
-            alert("Erro ao salvar edição.");
-        }
+        } catch (e) { alert("Erro ao editar."); }
     };
 
-    // FUNÇÃO ATUALIZADA: Deleta no Firebase
     const excluirLog = async (id) => {
         if(window.confirm('Excluir este registro permanentemente?')) {
             try {
-                await deleteDoc(doc(db, "operation_logs", id));
-            } catch (error) {
-                console.error("Erro ao excluir:", error);
-            }
+                await deleteDoc(doc(db, "logs_operacionais", id));
+            } catch (e) { alert("Erro ao excluir."); }
         }
     };
 
-    // ... (gerarSugestaoPDCA, abrirModalPDCA mantidos iguais ao seu código original) ...
+    // --- PDCA ---
     const gerarSugestaoPDCA = (texto, tipo) => {
         const t = texto ? texto.toLowerCase() : "";
         let sugestao = { 
-            causas: "1. Causa raiz não identificada.\n2. Falta de processo padrão.", 
-            plano: "1. Investigar ocorrência.\n2. Definir novo padrão operacional.",
+            causas: "1. Causa raiz não identificada.", 
+            plano: "1. Investigar ocorrência.",
             tipoObjeto: "Processo", 
-            descObjeto: "Processo Operacional" 
+            descObjeto: "Processo Geral" 
         };
 
-        if (t.includes('caminhao') || t.includes('veiculo') || t.includes('frota')) {
-            sugestao.tipoObjeto = "Veículo / Frota"; sugestao.descObjeto = "Veículo envolvido na ocorrência";
-        } else if (t.includes('empilhadeira') || t.includes('maquina') || t.includes('esteira')) {
-            sugestao.tipoObjeto = "Equipamento"; sugestao.descObjeto = "Equipamento em falha";
-        } else if (t.includes('sistema') || t.includes('computador') || t.includes('internet') || t.includes('rede')) {
-            sugestao.tipoObjeto = "Sistema / TI"; sugestao.descObjeto = "Sistema ou Hardware";
-        } else if (t.includes('colaborador') || t.includes('funcionario') || t.includes('equipe') || t.includes('motorista')) {
-            sugestao.tipoObjeto = "Pessoas / Equipe"; sugestao.descObjeto = "Colaborador ou Turno";
+        // Objeto
+        if (t.includes('caminhao') || t.includes('veiculo')) {
+            sugestao.tipoObjeto = "Veículo / Frota";
+            sugestao.descObjeto = "Veículo da Ocorrência";
+        } else if (t.includes('sistema') || t.includes('internet')) {
+            sugestao.tipoObjeto = "TI / Sistema";
+            sugestao.descObjeto = "Sistema ou Rede";
+        } else if (t.includes('colaborador') || t.includes('falt')) {
+            sugestao.tipoObjeto = "RH / Pessoas";
+            sugestao.descObjeto = "Colaborador";
         }
 
-        if (t.includes('caminhao') || t.includes('frota') || t.includes('pneu') || t.includes('quebra') || t.includes('manutencao')) {
-            sugestao.causas = "1. Desgaste natural da peça ou componente.\n2. Falta de manutenção preventiva.\n3. Más condições da via de transporte.";
-            sugestao.plano = "1. Enviar veículo para oficina credenciada imediatamente.\n2. Atualizar checklist de saída dos motoristas.\n3. Revisar plano de manutenção da frota.";
-        } 
-        else if (t.includes('falta') || t.includes('rh') || t.includes('atestad') || t.includes('colaborador') || t.includes('ausencia')) {
-            sugestao.causas = "1. Ausência não programada do colaborador.\n2. Falha na comunicação da escala de trabalho.\n3. Imprevisto pessoal ou doença.";
-            sugestao.plano = "1. Acionar banco de horas para cobertura de turno.\n2. Realizar realocação interna de equipe.\n3. Agendar conversa de feedback no retorno do colaborador.";
+        // Planos
+        if (t.includes('manutencao') || t.includes('quebra')) {
+            sugestao.causas = "1. Desgaste de peças.\n2. Falta de preventiva.";
+            sugestao.plano = "1. Enviar para manutenção.\n2. Revisar checklist.";
+        } else if (t.includes('falta') || t.includes('rh')) {
+            sugestao.causas = "1. Ausência não programada.";
+            sugestao.plano = "1. Realocar equipe.\n2. Aplicar feedback.";
         }
-        else if (t.includes('cliente') || t.includes('devolucao') || t.includes('reclama') || t.includes('entrega')) {
-            sugestao.causas = "1. Erro operacional na separação do pedido.\n2. Avaria ocorrida durante o transporte.\n3. Divergência de nota fiscal na conferência.";
-            sugestao.plano = "1. Contatar cliente para pedido formal de desculpas.\n2. Agendar reposição imediata da mercadoria.\n3. Treinar equipe de expedição nos procedimentos de conferência.";
-        }
-        else if (t.includes('sistema') || t.includes('internet') || t.includes('travou') || t.includes('ti') || t.includes('lento')) {
-            sugestao.causas = "1. Falha momentânea no provedor de serviço.\n2. Sobrecarga no servidor local.\n3. Equipamento obsoleto ou desatualizado.";
-            sugestao.plano = "1. Abrir chamado técnico urgente (TI).\n2. Operar em modo de contingência (manual) até o restabelecimento.\n3. Reiniciar equipamentos de rede.";
-        }
-        else if (tipo && tipo.includes('Melhoria')) {
-            sugestao.causas = "Oportunidade de ganho de eficiência detectada na operação.";
-            sugestao.plano = "1. Analisar viabilidade técnica e financeira da ideia.\n2. Realizar teste piloto em pequena escala.\n3. Medir resultados e padronizar se positivo.";
-        }
-        
+
         return sugestao;
     };
 
     const abrirModalPDCA = (origem) => {
-        let textoBase = '';
-        let tipoBase = '';
-        let idOrigem = null;
+        let textoBase = '', tipoBase = '', idOrigem = null;
 
         if (typeof origem === 'object' && origem !== null && origem.textoOriginal) {
-            textoBase = origem.textoOriginal;
-            tipoBase = origem.tipo;
-            idOrigem = origem.id;
-        } 
-        else if (origem === 'auto') {
-            const erroHoje = logs.find(l => l.data === new Date().toLocaleDateString() && l.tipo.includes('Erro'));
-            textoBase = erroHoje ? erroHoje.textoOriginal : 'Erro operacional crítico detectado no turno.';
-            tipoBase = erroHoje ? erroHoje.tipo : 'Erro / Falha operacional';
-            idOrigem = erroHoje ? erroHoje.id : null;
-        } 
-        else {
-            textoBase = ''; 
-            tipoBase = '';
+            textoBase = origem.textoOriginal; tipoBase = origem.tipo; idOrigem = origem.id;
+        } else if (origem === 'auto') {
+            const erroHoje = logs.find(l => l.data === new Date().toLocaleDateString('pt-BR') && l.tipo.includes('Erro'));
+            textoBase = erroHoje ? erroHoje.textoOriginal : 'Erro crítico do dia.';
+            tipoBase = erroHoje ? erroHoje.tipo : 'Erro Operacional';
         }
 
         const sugestoes = gerarSugestaoPDCA(textoBase, tipoBase);
@@ -390,9 +319,7 @@ export function OperationsLogPage() {
             logId: idOrigem,
             descricao: textoBase,
             causas: sugestoes.causas,
-            indicadorAntes: '', 
-            indicadorMeta: '',
-            metaDescritiva: 'Eliminar a causa raiz e evitar reincidência.',
+            indicadorAntes: '', indicadorMeta: '', metaDescritiva: '', 
             planoAcao: sugestoes.plano,
             tipo: tipoBase,
             tipoObjeto: sugestoes.tipoObjeto,
@@ -404,20 +331,15 @@ export function OperationsLogPage() {
     const confirmarSalvarPDCA = async () => {
         try {
             let prioridadeSugerida = "Média";
-            const tipo = pdcaForm.tipo || ""; 
-            
-            if (tipo.includes("Erro") || tipo.includes("Ruptura") || tipo.includes("Quebra") || tipo.includes("Falha")) {
-                prioridadeSugerida = "Alta";
-            }
-            if (pdcaForm.descricao.toLowerCase().includes("urgente") || pdcaForm.descricao.toLowerCase().includes("parou") || pdcaForm.descricao.toLowerCase().includes("crítico")) {
-                prioridadeSugerida = "Crítica";
-            }
+            const tipo = pdcaForm.tipo || "";
+            if (tipo.includes("Erro") || tipo.includes("Quebra")) prioridadeSugerida = "Alta";
+            if (pdcaForm.descricao.toLowerCase().includes("urgente")) prioridadeSugerida = "Crítica";
 
             const dataCalculada = calcularDataAlvo(prioridadeSugerida);
 
-            const novoPDCA = {
+            await addDoc(collection(db, "pdcas"), {
                 codigo: "OP-" + Math.floor(Math.random() * 10000),
-                titulo: pdcaForm.descricao ? `PDCA: ${pdcaForm.descricao.substring(0, 30)}...` : "Novo PDCA Operacional",
+                titulo: pdcaForm.descricao ? `PDCA: ${pdcaForm.descricao.substring(0, 30)}...` : "Novo PDCA",
                 status: "Planejando",
                 situacao: "ativo",
                 criadoEm: new Date().toISOString(),
@@ -434,52 +356,40 @@ export function OperationsLogPage() {
                     tipoObjeto: pdcaForm.tipoObjeto,
                     descricaoObjeto: pdcaForm.descricaoObjeto
                 }
-            };
-
-            await addDoc(collection(db, "pdcas"), novoPDCA);
+            });
             setShowPdcaModal(false);
-            alert("PDCA criado com sucesso e enviado para o Dashboard!");
+            alert("PDCA criado com sucesso no Banco de Dados!");
         } catch (error) {
-            console.error("Erro ao salvar no Firebase:", error);
-            alert("Erro ao conectar com o banco de dados.");
+            console.error("Erro:", error);
+            alert("Erro ao salvar PDCA.");
         }
     };
 
-    // --- DADOS DO DIA ---
-    const hojeData = new Date().toLocaleDateString();
+    // --- KPI ---
+    const hojeData = new Date().toLocaleDateString('pt-BR');
     const logsHoje = logs.filter(l => l.data === hojeData);
-    
     const statsHoje = logsHoje.reduce((acc, log) => {
         if (!acc[log.categoria]) acc[log.categoria] = { total: 0, erros: 0 };
         acc[log.categoria].total += 1;
         if (log.tipo.includes('Erro') || log.tipo.includes('Falha')) acc[log.categoria].erros += 1;
         return acc;
     }, {});
-
     const temErroHoje = logsHoje.some(l => l.tipo.includes('Erro'));
     let score = 100;
-    logsHoje.forEach(l => {
-        if (l.tipo.includes('Erro')) score -= 20;
-        if (l.tipo.includes('Alerta')) score -= 10;
-    });
+    logsHoje.forEach(l => { if (l.tipo.includes('Erro')) score -= 20; if (l.tipo.includes('Alerta')) score -= 10; });
     if (score < 0) score = 0;
 
     const getBadgeClass = (tipo) => {
         if(!tipo) return 'badge-Outros';
-        if(tipo.includes('Erro') || tipo.includes('Falha')) return 'badge-Erro';
-        if(tipo.includes('Alerta') || tipo.includes('Risco')) return 'badge-Alerta';
-        if(tipo.includes('Melhoria') || tipo.includes('Positivo') || tipo.includes('Resultado')) return 'badge-Melhoria';
-        if(tipo.includes('Quebra') || tipo.includes('Perda')) return 'badge-Quebra';
-        if(tipo.includes('Ruptura')) return 'badge-Ruptura';
-        if(tipo.includes('Cliente')) return 'badge-Cliente';
-        if(tipo.includes('Treinamento')) return 'badge-Treinamento';
-        if(tipo.includes('Planejamento')) return 'badge-Planejamento';
-        if(tipo.includes('Evento')) return 'badge-Evento';
+        if(tipo.includes('Erro')) return 'badge-Erro';
+        if(tipo.includes('Alerta')) return 'badge-Alerta';
+        if(tipo.includes('Melhoria')) return 'badge-Melhoria';
+        if(tipo.includes('Quebra')) return 'badge-Quebra';
         if(tipo.includes('WhatsApp')) return 'badge-WhatsApp';
         return 'badge-Outros';
     };
 
-    // FUNÇÃO ATUALIZADA: Simulação agora salva no Firebase para testar o sistema real
+    // --- SIMULAÇÃO DE WHATSAPP (INTEGRAÇÃO Z-API) ---
     const simularMensagemWhatsApp = async () => {
         const mensagensExemplo = [
             "Esteira 03 parou de funcionar agora - Enviado por João (Manutenção)",
@@ -489,28 +399,40 @@ export function OperationsLogPage() {
         ];
         const msgAleatoria = mensagensExemplo[Math.floor(Math.random() * mensagensExemplo.length)];
         
-        const analise = analisarTexto(msgAleatoria);
-
         try {
-            await addDoc(collection(db, "operation_logs"), {
-                data: new Date().toLocaleDateString(),
-                hora: new Date().toLocaleTimeString(),
-                timestamp: serverTimestamp(),
+            await addDoc(collection(db, "logs_operacionais"), {
+                data: new Date().toLocaleDateString('pt-BR'),
+                hora: new Date().toLocaleTimeString('pt-BR'),
+                timestamp: new Date(),
                 textoOriginal: `[WhatsApp] ${msgAleatoria}`,
-                categoria: analise.categoria, 
-                cliente: analise.cliente,
-                tipo: 'Alerta / Risco', // Assume risco por padrão no zap
-                origem: "whatsapp_simulado"
+                categoria: 'Comunicação / WhatsApp',
+                cliente: 'Geral',
+                tipo: 'Alerta / Risco'
             });
-            alert("Simulação enviada para o Banco de Dados (Firebase)!");
-        } catch (error) {
-            console.error(error);
+            alert("Nova mensagem recebida via WhatsApp (Simulação)!");
+        } catch (e) {
+            console.error("Erro ao simular:", e);
         }
     };
 
-    // Dados de Ontem (apenas simulação local visual, ou pode criar no banco com data retroativa)
-    const gerarDadosOntem = () => {
-        alert("Para testar Morning Call real, insira dados no Firebase com a data de ontem.");
+    // Função de Gerar Dados Ontem (Teste Morning Call)
+    const gerarDadosOntem = async () => {
+        const ontem = new Date();
+        ontem.setDate(ontem.getDate() - 1);
+        try {
+            await addDoc(collection(db, "logs_operacionais"), {
+                data: ontem.toLocaleDateString('pt-BR'),
+                hora: '14:30:00',
+                timestamp: ontem, // Timestamp correto de ontem
+                textoOriginal: 'Falta de pessoal na expedição noturna (Teste Ontem)',
+                categoria: 'RH',
+                cliente: 'Geral',
+                tipo: 'Erro / Falha operacional'
+            });
+            alert("Dados de ontem gerados! O Morning Call deve aparecer.");
+        } catch (e) {
+            console.error("Erro ao gerar dados ontem:", e);
+        }
     };
 
     return (
@@ -519,11 +441,12 @@ export function OperationsLogPage() {
 
             <div className="header">
                 <div>
-                    <h1 style={{margin:0, fontSize:'20px'}}>Diário de Operações</h1>
-                    <span style={{color:'#666', fontSize:'13px'}}>{new Date().toLocaleDateString(undefined, {weekday:'long', day:'numeric', month:'long'})}</span>
+                    <h1 style={{margin:0, fontSize:'20px'}}>Diário de Operações (Conectado)</h1>
+                    <span style={{color:'#666', fontSize:'13px'}}>{new Date().toLocaleDateString()}</span>
                     <div style={{display:'flex', gap:'5px', marginTop:'5px'}}>
+                        <button onClick={gerarDadosOntem} style={{fontSize:'10px', cursor:'pointer', border:'1px dashed #ccc', background:'none'}}>Teste Morning Call</button>
                         <button onClick={simularMensagemWhatsApp} style={{fontSize:'10px', cursor:'pointer', border:'1px solid #25D366', color:'#25D366', background:'white', borderRadius:'4px', display:'flex', alignItems:'center', gap:'4px'}}>
-                            <IconWhatsapp /> Testar Integração (Firebase)
+                            <IconWhatsapp /> Simular Msg WhatsApp
                         </button>
                     </div>
                 </div>
@@ -533,26 +456,17 @@ export function OperationsLogPage() {
                 </div>
             </div>
 
-            {alertaOntem && (
-                <div className="morning-alert">
-                    <IconAlert /> <strong>{alertaOntem}</strong>
-                </div>
-            )}
+            {alertaOntem && <div className="morning-alert"><IconAlert /> <strong>{alertaOntem}</strong></div>}
 
             <div className="kpi-grid">
                 {Object.keys(statsHoje).length === 0 ? (
-                    <div className="empty-kpi">Ainda não há registros hoje.</div>
+                    <div className="empty-kpi">Aguardando registros hoje...</div>
                 ) : (
                     Object.entries(statsHoje).map(([cat, dados]) => (
                         <div className="kpi-card" key={cat}>
                             <div className="kpi-indicator" style={{background: dados.erros > 0 ? '#dc2626' : '#16a34a'}}></div>
                             <h3>{cat}</h3>
-                            <span className="kpi-value">
-                                {dados.erros > 0 ? dados.erros : <IconCheck style={{color:'#16a34a'}}/>} 
-                                <span style={{fontSize:'12px', fontWeight:'400', color:'#888', marginLeft:'5px'}}>
-                                    {dados.erros === 1 ? 'Erro' : 'Erros'}
-                                </span>
-                            </span>
+                            <span className="kpi-value">{dados.erros > 0 ? dados.erros : <IconCheck style={{color:'#16a34a'}}/>}</span>
                         </div>
                     ))
                 )}
@@ -560,91 +474,56 @@ export function OperationsLogPage() {
 
             <div className="main-grid">
                 <div className="smart-input-container">
-                    <div className="smart-header">
-                        <h3><IconCheck/> Registro Rápido</h3>
-                    </div>
+                    <div className="smart-header"><h3><IconCheck/> Registro Rápido</h3></div>
                     <textarea 
                         className="main-textarea"
-                        placeholder="Descreva o fato... (Ex: Faltou colaborador na expedição...)"
+                        placeholder="Descreva o fato..."
                         value={inputTexto}
                         onChange={(e) => setInputTexto(e.target.value)}
-                        onKeyDown={(e) => e.key === 'Enter' && !e.shiftKey && (e.preventDefault(), registrarNovo())}
                     />
-                    
                     <div className="quick-tags">
-                        <div 
-                            className={`tag-chip ${tipoManual === 'Melhoria / Oportunidade' ? 'active-ideia' : ''}`} 
-                            onClick={() => toggleTipoManual('Melhoria / Oportunidade')}
-                        >
-                            <IconLightbulb /> Ideia / Melhoria
-                        </div>
-                        <div 
-                            className={`tag-chip ${tipoManual === 'Erro / Falha operacional' ? 'active-erro' : ''}`} 
-                            onClick={() => toggleTipoManual('Erro / Falha operacional')}
-                        >
-                            <IconAlert /> Erro / Falha
-                        </div>
-                        <div 
-                            className={`tag-chip ${tipoManual === null ? 'active-normal' : ''}`} 
-                            onClick={() => setTipoManual(null)}
-                        >
-                            🤖 Auto (IA)
-                        </div>
+                        <div className={`tag-chip ${tipoManual === 'Melhoria / Oportunidade' ? 'active-ideia' : ''}`} onClick={() => toggleTipoManual('Melhoria / Oportunidade')}><IconLightbulb /> Ideia</div>
+                        <div className={`tag-chip ${tipoManual === 'Erro / Falha operacional' ? 'active-erro' : ''}`} onClick={() => toggleTipoManual('Erro / Falha operacional')}><IconAlert /> Erro</div>
+                        <div className={`tag-chip ${tipoManual === null ? 'active-normal' : ''}`} onClick={() => setTipoManual(null)}>🤖 Auto</div>
                     </div>
-
-                    <button className="btn-magic" onClick={registrarNovo}>Registrar Ocorrência</button>
-                    <div style={{fontSize:'11px', color:'#9ca3af', marginTop:'10px', textAlign:'center'}}>
-                        {tipoManual ? `Tipo fixado: ${tipoManual}` : "A IA detecta a Categoria e o Tipo automaticamente."}
-                    </div>
+                    <button className="btn-magic" onClick={registrarNovo}>Registrar (Salvar na Nuvem)</button>
                 </div>
 
                 <div className="intelligence-card">
-                    <div className="intelligence-header"><IconBrain /> <span>Inteligência do Dia</span></div>
+                    <div className="intelligence-header"><IconBrain /> <span>Inteligência</span></div>
                     {temErroHoje ? (
                         <div className="alert-box alert-critical">
-                            <strong>⚠️ Padrão Crítico Detectado</strong>
-                            <p>Identificamos erros hoje. O score caiu.</p>
-                            <button className="btn-pdca-auto" onClick={() => abrirModalPDCA('auto')}>
-                                <IconBolt /> Gerar PDCA Automático
-                            </button>
+                            <strong>⚠️ Atenção</strong><p>Identificamos erros hoje.</p>
+                            <button className="btn-pdca-auto" onClick={() => abrirModalPDCA('auto')}><IconBolt /> Gerar PDCA</button>
                         </div>
                     ) : (
-                        <div className="alert-box alert-clean">
-                            <strong>✅ Operação Estável</strong>
-                            <p>Nenhum erro crítico registrado hoje.</p>
-                        </div>
+                        <div className="alert-box alert-clean"><strong>✅ Tudo Certo</strong><p>Sem erros críticos.</p></div>
                     )}
-                    <div className="history-stat">Total no Banco de Dados: {logs.length} registros</div>
+                    <div className="history-stat">Total: {logs.length} registros</div>
                 </div>
             </div>
 
             <div className="timeline-card">
                 <div className="timeline-header">
-                    <h3 style={{margin:0}}>Timeline & Histórico</h3>
+                    <h3 style={{margin:0}}>Linha do Tempo (Tempo Real)</h3>
                     <div className="timeline-actions">
-                        <button className="btn-new-pdca" onClick={() => abrirModalPDCA('manual')}>
-                            <IconPlus/> Novo PDCA
-                        </button>
+                        <button className="btn-new-pdca" onClick={() => abrirModalPDCA('manual')}><IconPlus/> Novo PDCA</button>
                     </div>
                 </div>
                 <table>
-                    <thead>
-                        <tr><th style={{width:'140px'}}>Data/Hora</th><th>Cat.</th><th>Tipo</th><th>Descrição</th><th style={{width:'120px'}}>Ações</th></tr>
-                    </thead>
+                    <thead><tr><th style={{width:'120px'}}>Data</th><th>Cat.</th><th>Tipo</th><th>Descrição</th><th style={{width:'100px'}}>Ações</th></tr></thead>
                     <tbody>
                         {logs.map((log) => (
                             <tr key={log.id}>
-                                <td><div style={{fontWeight:'bold'}}>{log.data}</div><div style={{fontSize:'11px', color:'#888'}}>{log.hora}</div></td>
+                                <td><b>{log.data}</b><br/><span style={{fontSize:'11px', color:'#888'}}>{log.hora}</span></td>
                                 <td>{log.categoria}</td>
                                 <td><span className={`badge ${getBadgeClass(log.tipo)}`}>{log.tipo}</span></td>
-                                <td><b>{log.cliente}:</b> {log.textoOriginal}</td>
+                                <td>{log.textoOriginal}</td>
                                 <td>
                                     <div className="actions">
-                                        <button className="icon-btn btn-row-pdca" title="Gerar PDCA com IA" onClick={() => abrirModalPDCA(log)}>
-                                            <IconBolt width="14" height="14" />
-                                        </button>
-                                        <button className="icon-btn icon-edit" title="Editar" onClick={() => abrirModalEdicao(log)}><IconEdit /></button>
-                                        <button className="icon-btn icon-del" title="Excluir" onClick={() => excluirLog(log.id)}><IconTrash /></button>
+                                        <button className="icon-btn btn-row-pdca" onClick={() => abrirModalPDCA(log)}><IconBolt width="14"/></button>
+                                        <button className="icon-btn icon-edit" onClick={() => abrirModalEdicao(log)}><IconEdit /></button>
+                                        <button className="icon-btn icon-del" onClick={() => excluirLog(log.id)}><IconTrash /></button>
                                     </div>
                                 </td>
                             </tr>
@@ -653,67 +532,20 @@ export function OperationsLogPage() {
                 </table>
             </div>
 
-            {/* MODAL EDIÇÃO */}
-            {showEditModal && (
-                <div className="modal-overlay">
-                    <section className="modal-card">
-                        <div className="card-header-styled"><h2>Editar Registro</h2><button onClick={() => setShowEditModal(false)} style={{background:'none', border:'none', cursor:'pointer'}}><IconX/></button></div>
-                        <div className="card-content">
-                            <div><label className="modal-label">Descrição</label><textarea className="modal-textarea" rows="3" value={editForm.textoOriginal} onChange={(e) => setEditForm({...editForm, textoOriginal: e.target.value})} /></div>
-                            <div>
-                                <label className="modal-label">Classificação</label>
-                                <select className="type-selector" value={editForm.tipo} onChange={(e) => setEditForm({...editForm, tipo: e.target.value})}>
-                                    {TIPOS_OCORRENCIA.map(t => <option key={t} value={t}>{t}</option>)}
-                                </select>
-                            </div>
-                            <div className="section-actions"><button className="btn-secondary" onClick={() => setShowEditModal(false)}>Cancelar</button><button className="btn-primary" onClick={salvarEdicao}>Salvar</button></div>
-                        </div>
-                    </section>
-                </div>
-            )}
-
-            {/* MODAL PDCA COM IA PREENCHIDA E CAMPOS EXTRAS */}
+            {/* MODAL PDCA */}
             {showPdcaModal && (
                 <div className="modal-overlay">
                     <section className="modal-card plan-card">
-                        <div className="card-header-styled">
-                            <h2><IconBrain color="#6366f1"/> Novo PDCA <span className="ai-badge">IA Auto-fill</span></h2>
-                            <button onClick={() => setShowPdcaModal(false)} style={{background:'none', border:'none', cursor:'pointer'}}><IconX/></button>
-                        </div>
+                        <div className="card-header-styled"><h2>Novo PDCA (IA)</h2><button onClick={() => setShowPdcaModal(false)} style={{border:'none', background:'none'}}><IconX/></button></div>
                         <div className="card-content">
-                            <div>
-                                <label className="modal-label">Problema (Fato)</label>
-                                <textarea className="modal-textarea" rows="2" value={pdcaForm.descricao} onChange={(e) => setPdcaForm({...pdcaForm, descricao: e.target.value})} />
-                            </div>
-                            
+                            <label className="modal-label">Problema</label><textarea className="modal-textarea" value={pdcaForm.descricao} onChange={(e) => setPdcaForm({...pdcaForm, descricao: e.target.value})} />
                             <div className="form-grid-2">
-                                <div>
-                                    <label className="modal-label">Tipo Objeto (IA)</label>
-                                    <input className="modal-textarea" style={{minHeight:'40px'}} value={pdcaForm.tipoObjeto} onChange={(e) => setPdcaForm({...pdcaForm, tipoObjeto: e.target.value})} />
-                                </div>
-                                <div>
-                                    <label className="modal-label">Desc. Objeto (IA)</label>
-                                    <input className="modal-textarea" style={{minHeight:'40px'}} value={pdcaForm.descricaoObjeto} onChange={(e) => setPdcaForm({...pdcaForm, descricaoObjeto: e.target.value})} />
-                                </div>
+                                <div><label className="modal-label">Tipo Objeto</label><input className="modal-textarea" value={pdcaForm.tipoObjeto} onChange={(e) => setPdcaForm({...pdcaForm, tipoObjeto: e.target.value})} /></div>
+                                <div><label className="modal-label">Desc. Objeto</label><input className="modal-textarea" value={pdcaForm.descricaoObjeto} onChange={(e) => setPdcaForm({...pdcaForm, descricaoObjeto: e.target.value})} /></div>
                             </div>
-
-                            <div>
-                                <label className="modal-label">Causas (Sugestão IA)</label>
-                                <textarea className="modal-textarea" rows="3" style={{background: '#fcfaff', borderColor: '#e0e7ff'}} value={pdcaForm.causas} onChange={(e) => setPdcaForm({...pdcaForm, causas: e.target.value})} />
-                            </div>
-                            <div className="form-grid-2">
-                                <div><label className="modal-label">Indicador Antes</label><input className="modal-textarea" style={{minHeight:'40px'}} value={pdcaForm.indicadorAntes} onChange={(e) => setPdcaForm({...pdcaForm, indicadorAntes: e.target.value})} /></div>
-                                <div><label className="modal-label">Indicador Meta</label><input className="modal-textarea" style={{minHeight:'40px'}} value={pdcaForm.indicadorMeta} onChange={(e) => setPdcaForm({...pdcaForm, indicadorMeta: e.target.value})} /></div>
-                            </div>
-                            <div><label className="modal-label">Meta (Descritiva)</label><input className="modal-textarea" style={{minHeight:'40px'}} value={pdcaForm.metaDescritiva} onChange={(e) => setPdcaForm({...pdcaForm, metaDescritiva: e.target.value})} /></div>
-                            <div>
-                                <label className="modal-label">Plano de Ação (Sugestão IA)</label>
-                                <textarea className="modal-textarea" rows="4" style={{background: '#fcfaff', borderColor: '#e0e7ff'}} value={pdcaForm.planoAcao} onChange={(e) => setPdcaForm({...pdcaForm, planoAcao: e.target.value})} />
-                            </div>
-                            <div className="section-actions">
-                                <button className="btn-secondary" onClick={() => setShowPdcaModal(false)}>Cancelar</button>
-                                <button className="btn-primary" onClick={confirmarSalvarPDCA}>Criar PDCA</button>
-                            </div>
+                            <label className="modal-label">Causas</label><textarea className="modal-textarea" value={pdcaForm.causas} onChange={(e) => setPdcaForm({...pdcaForm, causas: e.target.value})} />
+                            <label className="modal-label">Plano de Ação</label><textarea className="modal-textarea" value={pdcaForm.planoAcao} onChange={(e) => setPdcaForm({...pdcaForm, planoAcao: e.target.value})} />
+                            <div className="section-actions"><button className="btn-primary" onClick={confirmarSalvarPDCA}>Criar</button></div>
                         </div>
                     </section>
                 </div>

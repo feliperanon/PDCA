@@ -1,21 +1,22 @@
 /* src/services/aiService.js */
 import { GoogleGenerativeAI } from "@google/generative-ai";
 
-// A TUA CHAVE (A mesma do comando curl que enviaste)
-const API_KEY = "AIzaSyCO7USCPZ6OQfNOMbBxMh7mwhrMhUIwMBU"; 
-
 export async function gerarPdcaComIA(textoProblema) {
-  console.log("🚀 Iniciando análise com IA (Modelo 2.0 Flash) para:", textoProblema);
+  console.log("🚀 Iniciando análise com IA (Modelo 2.0 Flash)...");
 
+  // 1. Lê a chave do ficheiro .env (que criámos no Passo 2)
+  const API_KEY = import.meta.env.VITE_GOOGLE_API_KEY;
+
+  // 2. Verifica se a chave foi carregada corretamente
   if (!API_KEY || API_KEY.length < 10) {
-    return fallbackSimulation("Chave não configurada");
+    console.warn("⚠️ Chave API não encontrada. Verifique se criou o arquivo .env na raiz.");
+    return fallbackSimulation("Falta o arquivo .env com a chave VITE_GOOGLE_API_KEY");
   }
 
   try {
     const genAI = new GoogleGenerativeAI(API_KEY);
     
-    // 🔥 ATUALIZAÇÃO: Usando o modelo 'gemini-2.0-flash' conforme o teu comando curl.
-    // Este parece ser o modelo que a tua chave está autorizada a usar.
+    // Configura o modelo 'flash' que é mais rápido e eficiente
     const model = genAI.getGenerativeModel({ model: "gemini-2.0-flash" });
 
     const prompt = `
@@ -41,28 +42,40 @@ export async function gerarPdcaComIA(textoProblema) {
     
     // Limpeza para garantir JSON válido
     const jsonString = text.replace(/```json|```/g, "").trim();
+    
     return JSON.parse(jsonString);
 
   } catch (error) {
     console.error("Erro na IA:", error);
-    return fallbackSimulation("Erro: " + error.message);
+    
+    // Deteta se a chave foi bloqueada
+    let msg = error.message;
+    if (msg.includes("403") || msg.includes("leaked")) {
+        msg = "Chave bloqueada. Verifique o ficheiro .env";
+    }
+
+    return fallbackSimulation("Erro: " + msg);
   }
 }
 
+/**
+ * Função de fallback: Garante que o utilizador recebe uma resposta
+ * mesmo se a IA falhar ou estiver sem internet.
+ */
 function fallbackSimulation(motivo) {
     return new Promise((resolve) => {
       setTimeout(() => {
         resolve({
-          titulo_sugerido: "Erro de Conexão (Simulação)",
+          titulo_sugerido: "Modo Offline (Erro Conexão)",
           categoria: "Outro",
           prioridade: "Média",
-          area_sugerida: "Erro",
+          area_sugerida: "Sistema",
           turno_sugerido: "-",
           tipo_objeto: "Erro API",
           descricao_objeto: motivo,
-          causas: "1. O modelo gemini-2.0-flash pode não estar ativo.\n2. Verifique a chave.",
-          meta: "Tentar novamente.",
-          planoAcao: "Verifique o console para mais detalhes."
+          causas: "1. Arquivo .env em falta ou incorreto.\n2. Chave API bloqueada.\n3. Falha de internet.",
+          meta: "Verificar configurações do projeto.",
+          planoAcao: "1. Confirmar se o ficheiro .env existe na raiz.\n2. Reiniciar o servidor com 'npm run dev'."
         });
       }, 1000);
     });

@@ -1,15 +1,7 @@
-// src/pages/PdcaDetailPage.jsx
 import { useEffect, useState } from "react";
 import { useParams, useNavigate } from "react-router-dom";
-import { doc, getDoc, updateDoc, collection, addDoc, deleteDoc } from "firebase/firestore";
+import { doc, getDoc, updateDoc, deleteDoc } from "firebase/firestore";
 import { db } from "../firebase.js";
-
-function gerarCodigoPdca() {
-  const agora = new Date();
-  const ano = agora.getFullYear();
-  const sufixo = String(agora.getTime()).slice(-4);
-  return `PDCA-${ano}-${sufixo}`;
-}
 
 export function PdcaDetailPage() {
   const { id } = useParams();
@@ -37,7 +29,7 @@ export function PdcaDetailPage() {
   const [checkMessage, setCheckMessage] = useState("");
   const [actMessage, setActMessage] = useState("");
 
-  // --- PLAN ---
+  // --- PLAN (Removidos Responsavel e Turno) ---
   const [prioridade, setPrioridade] = useState("");
   const [area, setArea] = useState("");
   const [meta, setMeta] = useState("");
@@ -45,8 +37,6 @@ export function PdcaDetailPage() {
   const [dataAlvo, setDataAlvo] = useState("");
   
   const [categoria, setCategoria] = useState("");
-  const [responsavel, setResponsavel] = useState("");
-  const [turno, setTurno] = useState("");
   const [tipoObjeto, setTipoObjeto] = useState("");
   const [descricaoObjeto, setDescricaoObjeto] = useState("");
   const [causas, setCausas] = useState("");
@@ -74,11 +64,30 @@ export function PdcaDetailPage() {
   const [checkIniciadoEm, setCheckIniciadoEm] = useState(null);
   const [actIniciadoEm, setActIniciadoEm] = useState(null);
 
-  // Snapshots (para o botão cancelar funcionar corretamente)
+  // Snapshots
   const [initialPlan, setInitialPlan] = useState(null);
   const [initialDo, setInitialDo] = useState(null);
   const [initialCheck, setInitialCheck] = useState(null);
   const [initialAct, setInitialAct] = useState(null);
+
+  // --- REGRA DE NEGÓCIO: DATAS ---
+  const calcularDataPorPrioridade = (novaPrioridade) => {
+    const hoje = new Date();
+    let dias = 7; // Baixa
+    if (novaPrioridade === 'Crítica') dias = 4;
+    else if (novaPrioridade === 'Alta') dias = 5;
+    else if (novaPrioridade === 'Média') dias = 6;
+    
+    hoje.setDate(hoje.getDate() + dias);
+    return hoje.toISOString().split('T')[0];
+  };
+
+  const handlePrioridadeChange = (e) => {
+    const novaPrio = e.target.value;
+    setPrioridade(novaPrio);
+    // Recalcula data automaticamente ao mudar prioridade
+    setDataAlvo(calcularDataPorPrioridade(novaPrio));
+  };
 
   useEffect(() => {
     async function loadPdca() {
@@ -101,14 +110,12 @@ export function PdcaDetailPage() {
           const actBlock = data.act || {};
 
           // PLAN
-          setPrioridade(plan.prioridade || "");
+          setPrioridade(plan.prioridade || "Baixa");
           setArea(data.area || plan.area || "");
           setMeta(plan.meta || "");
           setTextoProblema(plan.descricaoProblema || plan.problema || "");
           setDataAlvo(plan.dataAlvo || "");
           setCategoria(plan.categoria || "");
-          setResponsavel(data.responsavel || plan.responsavel || "");
-          setTurno(plan.turno || "");
           setTipoObjeto(plan.tipoObjeto || "");
           setDescricaoObjeto(plan.descricaoObjeto || "");
           setCausas(plan.causas || "");
@@ -119,7 +126,7 @@ export function PdcaDetailPage() {
           setInitialPlan({
             prioridade: plan.prioridade, area: data.area, meta: plan.meta,
             textoProblema: plan.descricaoProblema, dataAlvo: plan.dataAlvo,
-            categoria: plan.categoria, responsavel: data.responsavel, turno: plan.turno,
+            categoria: plan.categoria,
             tipoObjeto: plan.tipoObjeto, descricaoObjeto: plan.descricaoObjeto,
             causas: plan.causas, planoAcao: plan.planoAcao,
             indicadorReferencia: plan.indicadorReferencia, indicadorDesejado: plan.indicadorDesejado
@@ -164,7 +171,7 @@ export function PdcaDetailPage() {
   const checkOK = doOK && ((checkAntes && checkAntes.trim() !== "") || (checkDepois && checkDepois.trim() !== "") || (checkObs && checkObs.trim() !== ""));
   const actOK = checkOK && actFuncionou && actFuncionou !== "";
 
-  // --- FUNÇÃO CENTRAL DE SALVAR (CORRIGIDA) ---
+  // --- FUNÇÃO CENTRAL DE SALVAR ---
   async function savePdcaCore(sectionToUpdate) {
     if (!pdca || (pdca.situacao || "ativo") !== "ativo") return;
     setError("");
@@ -184,16 +191,16 @@ export function PdcaDetailPage() {
     try {
       const ref = doc(db, "pdcas", pdca.id);
       
-      // 1. Atualiza no Banco de Dados
+      // 1. Atualiza no Banco de Dados (Sem Responsavel/Turno)
       await updateDoc(ref, {
         "plan.prioridade": prioridade, "plan.area": area, "plan.meta": meta,
         "plan.problema": textoProblema, "plan.dataAlvo": dataAlvo,
-        "plan.categoria": categoria, "plan.responsavel": responsavel,
-        "plan.turno": turno, "plan.tipoObjeto": tipoObjeto,
+        "plan.categoria": categoria,
+        "plan.tipoObjeto": tipoObjeto,
         "plan.descricaoObjeto": descricaoObjeto, "plan.causas": causas,
         "plan.planoAcao": planoAcao, "plan.indicadorReferencia": indicadorReferencia,
         "plan.indicadorDesejado": indicadorDesejado,
-        "area": area, "responsavel": responsavel, // raiz
+        "area": area, // raiz
         
         do: { acoesRealizadas: doAcoes, quemFez: doQuem, quandoFez: doQuando },
         check: { indicadoresAntes: checkAntes, indicadoresDepois: checkDepois, observacoes: checkObs },
@@ -202,32 +209,31 @@ export function PdcaDetailPage() {
         ...(novoDoIniciadoEm && { doIniciadoEm: novoDoIniciadoEm })
       });
       
-      // 2. Atualiza o Objeto PDCA Local (Para consistência)
+      // 2. Atualiza Local
       setPdca(prev => ({
           ...prev, 
           status: novoStatus, 
           atualizadoEm: agoraISO, 
           doIniciadoEm: novoDoIniciadoEm,
           area: area,
-          responsavel: responsavel,
           plan: {
              ...prev.plan,
              prioridade, area, meta, problema: textoProblema, dataAlvo,
-             categoria, responsavel, turno, tipoObjeto, descricaoObjeto,
+             categoria, tipoObjeto, descricaoObjeto,
              causas, planoAcao, indicadorReferencia, indicadorDesejado
           }
       }));
 
-      // 3. Atualiza o Snapshot (Para o botão cancelar não trazer dados velhos)
+      // 3. Atualiza Snapshot
       if (sectionToUpdate === 'context' || sectionToUpdate === 'plan') {
          setInitialPlan({
-            prioridade, area, meta, textoProblema, dataAlvo,
-            categoria, responsavel, turno, tipoObjeto, descricaoObjeto,
-            causas, planoAcao, indicadorReferencia, indicadorDesejado
+           prioridade, area, meta, textoProblema, dataAlvo,
+           categoria, tipoObjeto, descricaoObjeto,
+           causas, planoAcao, indicadorReferencia, indicadorDesejado
          });
          
          if(sectionToUpdate === 'context') {
-             setIsEditingContext(false); // Fecha o modo edição
+             setIsEditingContext(false);
          }
       }
       
@@ -238,13 +244,7 @@ export function PdcaDetailPage() {
   }
 
   // Handlers
-  const handleSaveContext = async () => { 
-      setSavingPlan(true); 
-      await savePdcaCore('context'); 
-      setSavingPlan(false); 
-      // Não precisamos de mensagem aqui pois fechamos o form
-  };
-  
+  const handleSaveContext = async () => { setSavingPlan(true); await savePdcaCore('context'); setSavingPlan(false); };
   const handleSavePlan = async () => { setSavingPlan(true); await savePdcaCore('plan'); setSavingPlan(false); setPlanMessage("Dados atualizados."); };
   const handleSaveDo = async () => { setSavingDo(true); await savePdcaCore(); setSavingDo(false); setDoMessage("Dados atualizados."); };
   const handleSaveCheck = async () => { setSavingCheck(true); await savePdcaCore(); setSavingCheck(false); setCheckMessage("Dados atualizados."); };
@@ -256,8 +256,6 @@ export function PdcaDetailPage() {
     setCategoria(initialPlan.categoria || ""); 
     setPrioridade(initialPlan.prioridade || ""); 
     setArea(initialPlan.area || "");
-    setResponsavel(initialPlan.responsavel || ""); 
-    setTurno(initialPlan.turno || ""); 
     setDataAlvo(initialPlan.dataAlvo || "");
     setTipoObjeto(initialPlan.tipoObjeto || ""); 
     setDescricaoObjeto(initialPlan.descricaoObjeto || "");
@@ -348,8 +346,7 @@ export function PdcaDetailPage() {
              <div className="ctx-item"><label>Categoria</label><strong>{categoria || "-"}</strong></div>
              <div className="ctx-item"><label>Prioridade</label><span className={`badge-${prioridade?.toLowerCase()}`}>{prioridade || "-"}</span></div>
              <div className="ctx-item"><label>Área</label><strong>{area || "-"}</strong></div>
-             <div className="ctx-item"><label>Responsável</label><strong>{responsavel || "-"}</strong></div>
-             <div className="ctx-item"><label>Turno</label><strong>{turno || "-"}</strong></div>
+             {/* CAMPOS REMOVIDOS AQUI */}
              <div className="ctx-item"><label>Data Alvo</label><strong>{dataAlvo ? new Date(dataAlvo).toLocaleDateString('pt-BR') : "-"}</strong></div>
              
              <div className="ctx-item ctx-full">
@@ -375,19 +372,18 @@ export function PdcaDetailPage() {
                    </select>
                 </label>
                 <label>Prioridade
-                   <select value={prioridade} onChange={e => setPrioridade(e.target.value)}>
-                      <option value="Crítica">Crítica</option>
-                      <option value="Alta">Alta</option>
-                      <option value="Média">Média</option>
-                      <option value="Baixa">Baixa</option>
+                   {/* AO MUDAR PRIORIDADE, CHAMA A LÓGICA DE DATA */}
+                   <select value={prioridade} onChange={handlePrioridadeChange}>
+                      <option value="Crítica">Crítica (4 dias)</option>
+                      <option value="Alta">Alta (5 dias)</option>
+                      <option value="Média">Média (6 dias)</option>
+                      <option value="Baixa">Baixa (7 dias)</option>
                    </select>
                 </label>
                 <label>Data Alvo <input type="date" value={dataAlvo} onChange={e => setDataAlvo(e.target.value)} /></label>
              </div>
              <div className="form-grid-3">
                 <label>Área <input value={area} onChange={e => setArea(e.target.value)} /></label>
-                <label>Responsável <input value={responsavel} onChange={e => setResponsavel(e.target.value)} /></label>
-                <label>Turno <input value={turno} onChange={e => setTurno(e.target.value)} /></label>
              </div>
              <div className="form-grid-2">
                 <label>Tipo Objeto <input value={tipoObjeto} onChange={e => setTipoObjeto(e.target.value)} /></label>
@@ -417,8 +413,8 @@ export function PdcaDetailPage() {
              <label>Plano de Ação <textarea value={planoAcao} onChange={e => setPlanoAcao(e.target.value)} rows={4} disabled={!isAtivo} /></label>
              {isAtivo && 
                 <div className="section-actions">
-                    <button type="button" className="btn-secondary" onClick={handleCancelarPlan} disabled={savingPlan}>Cancelar</button>
-                    <button type="button" className="btn-primary" onClick={handleSavePlan} disabled={savingPlan}>{savingPlan ? "Salvando..." : "Salvar Plan"}</button>
+                   <button type="button" className="btn-secondary" onClick={handleCancelarPlan} disabled={savingPlan}>Cancelar</button>
+                   <button type="button" className="btn-primary" onClick={handleSavePlan} disabled={savingPlan}>{savingPlan ? "Salvando..." : "Salvar Plan"}</button>
                 </div>
              }
           </div>
