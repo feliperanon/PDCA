@@ -1,0 +1,311 @@
+/* ===========================================================
+   src/style.css — Revisado
+   Mantive tokens, visual e responsividade. Removi duplicatas
+   e agrupei regras para melhor legibilidade/manutenção.
+   =========================================================== */
+
+/* =========================
+   TOKENS / VARIÁVEIS
+   ========================= */
+:root{
+  /* Fundo / superfícies */
+  --color-body-bg:#f5f7fa;
+  --color-body-bg-soft:#eef1f6;
+  --color-surface:#ffffff;
+  --color-surface-soft:#f9fafb;
+  --color-border-subtle:#e5e7eb;
+  --color-border-strong:#d1d5db;
+
+  /* Texto */
+  --color-text:#111827;
+  --color-text-muted:#6b7280;
+  --color-text-soft:#9ca3af;
+
+  /* Cores principais */
+  --color-primary:#2563eb;
+  --color-primary-soft:rgba(37,99,235,0.12);
+  --color-primary-strong:#1d4ed8;
+
+  /* Status PDCA */
+  --status-plan:#0ea5e9; --status-plan-soft:rgba(14,165,233,0.14);
+  --status-do:#22c55e;  --status-do-soft:rgba(34,197,94,0.14);
+  --status-check:#eab308; --status-check-soft:rgba(234,179,8,0.16);
+  --status-act:#f97316; --status-act-soft:rgba(249,115,22,0.16);
+
+  /* Feedback */
+  --color-success-bg:#ecfdf3; --color-success-border:#bbf7d0; --color-success-text:#166534;
+  --color-error-bg:#fef2f2; --color-error-border:#fecaca; --color-error-text:#b91c1c;
+  --color-danger:#dc2626; --color-danger-strong:#b91c1c; --color-danger-soft:#fee2e2;
+
+  /* Espaçamento / radius / sombra / tipografia */
+  --space-1:4px; --space-2:8px; --space-3:12px; --space-4:16px; --space-5:20px; --space-6:24px;
+  --radius-sm:4px; --radius-md:8px; --radius-lg:12px; --radius-pill:999px;
+  --shadow-soft:0 2px 6px rgba(15,23,42,0.06); --shadow-medium:0 8px 20px rgba(15,23,42,0.08);
+  --font-size-xs:11px; --font-size-sm:12px; --font-size-md:14px; --font-size-lg:16px; --font-size-xl:20px; --font-size-2xl:24px;
+  --transition-fast:140ms ease-out; --transition-medium:220ms ease-out;
+}
+
+/* =========================
+   RESET + BASE
+   ========================= */
+*,
+*::before,
+*::after{box-sizing:border-box}
+
+html,body,#root{height:100%}
+
+body{
+  margin:0;
+  font-family:system-ui,-apple-system,BlinkMacSystemFont,"Segoe UI",sans-serif;
+  background:linear-gradient(to bottom,var(--color-body-bg) 0%,var(--color-body-bg-soft) 100%);
+  color:var(--color-text); -webkit-font-smoothing:antialiased;
+}
+
+a{color:inherit;text-decoration:none}
+
+/* Scrollbar discreta */
+*{scrollbar-width:thin;scrollbar-color:#cbd5e1 transparent}
+*::-webkit-scrollbar{width:6px}
+*::-webkit-scrollbar-track{background:transparent}
+*::-webkit-scrollbar-thumb{background-color:#cbd5e1;border-radius:999px}
+
+/* =========================
+   LAYOUT PRINCIPAL
+   ========================= */
+.app-root{min-height:100vh;display:flex;flex-direction:column}
+
+.app-header{
+  position:sticky;top:0;z-index:10;display:flex;flex-direction:column;align-items:center;gap:8px;
+  padding:10px 24px 14px;background-color:rgba(255,255,255,0.98);
+  border-bottom:1px solid var(--color-border-subtle);box-shadow:var(--shadow-soft);
+}
+
+.app-logo{font-weight:700;font-size:var(--font-size-lg);letter-spacing:.04em}
+
+/* =========================
+   MENU / NAV
+   ========================= */
+/* Unifiquei e mantive a versão escura destacada para header */
+.app-menu{
+  position:sticky;top:0;z-index:50;width:100%;display:flex;align-items:center;
+  justify-content:space-between;gap:16px;padding:10px 20px;
+  background:radial-gradient(circle at top left,#1d4ed8 0,#0b1120 55%),radial-gradient(circle at bottom right,#22c55e33 0,transparent 55%),#020617;
+  color:#e5e7eb;box-shadow:0 10px 25px rgba(15,23,42,0.45);border-bottom:1px solid rgba(148,163,184,0.4);
+  backdrop-filter:blur(8px);
+}
+
+.app-menu-spacer{flex:1}
+.app-menu-left{display:flex;align-items:center;gap:20px;min-width:0}
+.app-menu-brand{display:flex;flex-direction:column;gap:2px}
+.app-menu-brand-mark{
+  font-size:11px;font-weight:700;letter-spacing:.15em;text-transform:uppercase;padding:3px 10px;border-radius:999px;
+  border:1px solid rgba(191,219,254,0.8);background:rgba(15,23,42,0.7);color:#bfdbfe;box-shadow:0 0 0 1px rgba(15,23,42,0.6);
+}
+.app-menu-brand-sub{font-size:11px;color:#9ca3af}
+
+/* Links centrais e lado direito */
+.app-menu-links{flex:1;display:flex;align-items:center;justify-content:center;gap:10px}
+.app-menu-right{flex:1;display:flex;align-items:center;justify-content:flex-end;gap:14px;flex-wrap:wrap}
+
+/* Link estilo */
+.app-menu-link{
+  position:relative;font-size:13px;padding:6px 16px 10px;border-radius:999px;border:1px solid transparent;
+  color:#cbd5f5;background-color:rgba(15,23,42,0.4);display:inline-flex;align-items:center;justify-content:center;gap:6px;
+  transition:background-color var(--transition-fast),border-color var(--transition-fast),color var(--transition-fast),transform var(--transition-fast),box-shadow var(--transition-fast);
+  white-space:nowrap;
+}
+.app-menu-link:hover{
+  background-color:rgba(15,23,42,0.9);border-color:rgba(129,140,248,0.7);box-shadow:0 0 0 1px rgba(129,140,248,0.4);transform:translateY(-1px);
+}
+
+/* estado ativo */
+.app-menu-link.active,.app-menu-link[aria-current="page"],.app-menu-link-active{
+  background:linear-gradient(135deg,#2563eb,#4f46e5);border-color:rgba(191,219,254,0.8);color:#fff;
+  box-shadow:0 0 0 1px rgba(15,23,42,0.85),0 10px 18px rgba(15,23,42,0.6);
+}
+.app-menu-link.active::after,.app-menu-link[aria-current="page"]::after{
+  content:"";position:absolute;left:50%;transform:translateX(-50%);bottom:3px;height:2px;width:60%;border-radius:999px;
+  background:linear-gradient(90deg,#22c55e,#a5b4fc);opacity:.9;
+}
+
+/* avatar / user */
+.app-menu-user-wrapper{display:flex;align-items:center;gap:8px}
+.app-menu-avatar{
+  width:32px;height:32px;border-radius:999px;display:inline-flex;align-items:center;justify-content:center;font-size:13px;font-weight:600;color:#e5e7eb;
+  background:radial-gradient(circle at 30% 0,#93c5fd,#1d4ed8);box-shadow:0 0 0 2px rgba(15,23,42,0.9),0 0 12px rgba(59,130,246,0.6);
+}
+.app-menu-user-text{display:flex;flex-direction:column;gap:2px}
+.app-menu-user-name{font-size:13px;font-weight:500;color:#e5e7eb}
+.app-menu-user-role{font-size:11px;color:#9ca3af}
+
+/* logout button variant */
+.app-menu-right .btn-secondary.app-menu-logout{padding:6px 14px;font-size:13px;border-radius:999px;background:transparent;color:#e5e7eb;border-color:rgba(148,163,184,0.8);box-shadow:none}
+.app-menu-right .btn-secondary.app-menu-logout:hover{background:rgba(15,23,42,0.9);box-shadow:0 0 0 1px rgba(148,163,184,0.9);transform:translateY(-1px)}
+
+/* Responsivo do header/menu */
+@media (max-width:768px){
+  .app-menu{flex-direction:column;align-items:stretch;gap:10px}
+  .app-menu-spacer{display:none}
+  .app-menu-left{flex-direction:column;align-items:flex-start;gap:8px}
+  .app-menu-links{flex:0;justify-content:center;flex-wrap:wrap}
+  .app-menu-right{justify-content:space-between}
+}
+
+/* =========================
+   APP MAIN / PAGES
+   ========================= */
+.app-main{max-width:1100px;width:100%;margin:0 auto;padding:24px 16px 32px}
+.page{background:transparent}
+.page-title{font-size:var(--font-size-2xl);margin:0 0 4px}
+.page-subtitle{font-size:var(--font-size-sm);color:var(--color-text-muted);margin:0 0 16px}
+
+/* =========================
+   SUPERFÍCIES / CARDS / LAYOUTS
+   ========================= */
+.card,.home-card,.form-section,.timeline-section,.card-list,.detail-info,.board-column{
+  background-color:var(--color-surface);border-radius:var(--radius-md);border:1px solid var(--color-border-subtle);box-shadow:var(--shadow-soft);
+}
+
+.home-layout{display:flex;flex-direction:column;gap:16px;margin-top:16px}
+.home-row-2{display:grid;grid-template-columns:repeat(2,minmax(0,1fr));gap:12px}
+.home-card{padding:var(--space-4);transition:border-color var(--transition-fast),box-shadow var(--transition-fast),transform var(--transition-fast),background-color var(--transition-fast)}
+.home-card:hover{border-color:var(--color-primary);box-shadow:var(--shadow-medium);background-color:#fff;transform:translateY(-2px)}
+.home-card h2{margin:0 0 6px;font-size:18px}
+.home-card p{margin:0;font-size:14px;color:var(--color-text-muted)}
+
+/* =========================
+   FORMULÁRIOS
+   ========================= */
+.form{display:flex;flex-direction:column;gap:var(--space-4)}
+.form-section{padding:var(--space-4);display:flex;flex-direction:column;gap:var(--space-2)}
+label{display:flex;flex-direction:column;gap:4px;font-size:14px}
+input,select,textarea{font:inherit;padding:6px 8px;border-radius:var(--radius-sm);border:1px solid var(--color-border-strong);background-color:#fff;color:var(--color-text);transition:box-shadow var(--transition-fast),border-color var(--transition-fast),transform var(--transition-fast)}
+input:focus,select:focus,textarea:focus{outline:none;border-color:var(--color-primary);box-shadow:0 0 0 2px var(--color-primary-soft);background:#fff;transform:translateY(-1px)}
+textarea{resize:vertical}
+
+/* Botões */
+.btn-primary,.btn-secondary,.btn-danger{display:inline-flex;align-items:center;justify-content:center;gap:6px;padding:8px 14px;border-radius:999px;font-size:14px;font-weight:500;cursor:pointer;border:1px solid transparent;transition:background-color var(--transition-fast),border-color var(--transition-fast),transform var(--transition-fast),box-shadow var(--transition-fast)}
+.btn-primary{background-color:var(--color-primary);color:#fff;border-color:var(--color-primary);box-shadow:var(--shadow-soft)}
+.btn-primary:hover:not(:disabled){background-color:var(--color-primary-strong);transform:translateY(-1px);box-shadow:var(--shadow-medium)}
+.btn-primary:disabled{background-color:#93c5fd;border-color:#93c5fd;color:#e5e7eb;cursor:not-allowed;opacity:.9;box-shadow:none}
+.btn-secondary{background:#fff;color:var(--color-text);border-color:var(--color-border-strong)}
+.btn-secondary:hover{background-color:var(--color-surface-soft);box-shadow:var(--shadow-soft)}
+.btn-danger{background:var(--color-danger);color:#fff;border-color:var(--color-danger)}
+.btn-danger:hover{background:var(--color-danger-strong);border-color:var(--color-danger-strong);box-shadow:var(--shadow-soft)}
+
+/* Alerts */
+.alert{margin-bottom:var(--space-3);padding:8px 10px;border-radius:6px;font-size:14px;background-color:var(--color-success-bg);color:var(--color-success-text);border:1px solid var(--color-success-border)}
+.alert-error{background-color:var(--color-error-bg);color:var(--color-error-text);border-color:var(--color-error-border)}
+
+/* Chips */
+.chip{border-radius:var(--radius-pill);border:1px solid var(--color-border-strong);padding:4px 10px;font-size:13px;background:#fff;color:#374151;cursor:pointer;transition:transform var(--transition-fast),box-shadow var(--transition-fast)}
+.chip:hover{background-color:var(--color-surface-soft);transform:translateY(-1px);box-shadow:var(--shadow-soft)}
+.chip-active{background-color:var(--color-primary);border-color:var(--color-primary);color:#fff}
+
+/* =========================
+   PDCA CARDS / TIMELINE / KANBAN
+   ========================= */
+.pdca-card{display:block;padding:12px 16px;border-bottom:1px solid var(--color-border-subtle);position:relative;transition:background-color var(--transition-fast),transform var(--transition-fast),box-shadow var(--transition-fast),border-color var(--transition-fast)}
+.pdca-card:hover{background-color:#f9fafb;transform:translateY(-1px);box-shadow:var(--shadow-soft)}
+.pdca-card::before{content:"";position:absolute;left:0;top:8px;bottom:8px;width:3px;border-radius:999px;background:linear-gradient(to bottom,var(--status-plan),var(--status-do),var(--status-check),var(--status-act));opacity:.9}
+.pdca-card-header{display:flex;justify-content:space-between;gap:8px;align-items:center;margin-bottom:4px}
+.pdca-card-title{font-size:14px;font-weight:600}
+.pdca-card-status{font-size:11px;padding:2px 8px;border-radius:var(--radius-pill);background:#e5e7eb}
+.pdca-card-status.status-plan{background:var(--status-plan-soft);color:var(--status-plan)}
+.pdca-card-status.status-do{background:var(--status-do-soft);color:var(--status-do)}
+.pdca-card-status.status-check{background:var(--status-check-soft);color:var(--status-check)}
+.pdca-card-status.status-act{background:var(--status-act-soft);color:var(--status-act)}
+.pdca-card-meta{display:flex;flex-wrap:wrap;gap:8px;font-size:11px;color:var(--color-text-muted)}
+.pdca-card-body{margin-top:4px;font-size:12px;color:#374151}
+.pdca-card-footer{margin-top:8px;display:flex;flex-wrap:wrap;gap:8px;font-size:11px;color:var(--color-text-muted)}
+.pdca-card-timing{margin-top:8px;padding-top:6px;border-top:1px dashed var(--color-border-subtle);display:flex;flex-wrap:wrap;gap:8px;font-size:11px;color:var(--color-text-muted)}
+
+/* Timeline */
+.timeline-grid{display:grid;grid-template-columns:repeat(auto-fit,minmax(260px,1fr));gap:var(--space-3);margin-top:var(--space-4)}
+.timeline-section{overflow:hidden}
+.timeline-header{display:flex;justify-content:space-between;padding:8px 12px;border-bottom:1px solid var(--color-border-subtle);font-size:13px;background:var(--color-surface-soft)}
+.timeline-list{list-style:none;margin:0;padding:0}
+.timeline-item{padding:8px 12px;border-top:1px solid var(--color-border-subtle);position:relative}
+.timeline-item::before{content:"";position:absolute;left:10px;top:12px;width:6px;height:6px;border-radius:999px;background-color:var(--color-primary)}
+.timeline-item-header{display:flex;justify-content:space-between;gap:8px;font-size:12px;padding-left:16px}
+.timeline-item-title{font-weight:500}
+.timeline-item-date{font-size:11px;color:var(--color-text-muted)}
+.timeline-item-meta{margin-top:4px;display:flex;flex-wrap:wrap;gap:6px;font-size:11px;color:var(--color-text-muted);padding-left:16px}
+
+/* Kanban board */
+.board-grid{display:grid;grid-template-columns:repeat(auto-fit,minmax(240px,1fr));gap:12px;margin-top:16px}
+.board-column{max-height:80vh;display:flex;flex-direction:column}
+.board-column-header{padding:10px 12px;border-bottom:1px solid var(--color-border-subtle);display:flex;justify-content:space-between;gap:8px;background:var(--color-surface-soft}
+.board-column-header h2{margin:0;font-size:15px}
+.board-column-body{padding:0;overflow-y:auto}
+
+/* =========================
+   HISTÓRICO / TABELAS
+   ========================= */
+.historico-table-wrapper{background:var(--color-surface);border-radius:10px;padding:10px 14px;box-shadow:0 1px 4px rgba(15,23,42,0.06);overflow-x:auto}
+.historico-table{width:100%;border-collapse:collapse;font-size:.85rem}
+.historico-table th,historico-table td,.historico-table th,.historico-table td{border-bottom:1px solid var(--color-border-subtle);padding:6px 8px;text-align:left;vertical-align:top}
+.historico-table th{font-weight:600;background:var(--color-surface-soft)}
+.historico-row:nth-child(even) td{background:#fdfdfd}
+.historico-code-link{font-weight:600;color:var(--color-primary);text-decoration:none}
+.historico-code-link:hover{text-decoration:underline}
+
+/* =========================
+   DETALHE / UTILITÁRIOS
+   ========================= */
+.detail-header{display:flex;justify-content:space-between;align-items:flex-start;gap:12px;margin-bottom:12px}
+.detail-actions{display:flex;flex-wrap:wrap;gap:8px;justify-content:flex-end;align-items:center;margin-bottom:12px}
+.detail-info{padding:12px;font-size:13px;margin-bottom:16px}
+.detail-grid{display:grid;grid-template-columns:repeat(auto-fit,minmax(320px,1fr));gap:24px;margin-top:16px}
+.detail-card{background:#fff;border-radius:10px;padding:16px 20px;box-shadow:0 2px 6px rgba(0,0,0,0.08)}
+.section-readonly-hint{margin-top:12px;font-size:.85rem;color:#666}
+
+/* FORM FIELDS GENERICOS */
+.form-field{display:flex;flex-direction:column;gap:4px;margin-bottom:10px}
+.form-field span{font-size:13px;font-weight:500;color:var(--color-text-muted)}
+.form-error{margin:4px 0 8px;font-size:13px;color:var(--color-error-text);background-color:var(--color-error-bg);border:1px solid var(--color-error-border);border-radius:6px;padding:6px 8px}
+
+/* LOGIN */
+.login-page{min-height:100vh;display:flex;align-items:center;justify-content:center;padding:24px 16px;position:relative;overflow:hidden;background:linear-gradient(to bottom,var(--color-body-bg),var(--color-body-bg-soft))}
+.login-card{position:relative;width:100%;max-width:420px;padding:22px 24px 18px;border-radius:18px;background:rgba(255,255,255,0.98);border:1px solid rgba(148,163,184,0.5);box-shadow:0 18px 40px rgba(15,23,42,0.16);backdrop-filter:blur(6px);transform:translateY(6px);opacity:0;animation:loginCardIn 320ms var(--transition-medium) forwards}
+@keyframes loginCardIn{from{opacity:0;transform:translateY(14px) scale(.98)}to{opacity:1;transform:translateY(0) scale(1)}}
+.login-card:hover{transform:translateY(-2px);box-shadow:0 22px 50px rgba(15,23,42,0.2)}
+.login-card-header{margin-bottom:14px;display:flex;flex-direction:column;gap:6px}
+.login-card-header h1{margin:4px 0 0;font-size:22px}
+.login-subtitle{margin:0;font-size:13px;color:var(--color-text-muted)}
+.login-brand{display:flex;flex-direction:column;gap:4px}
+.login-brand-mark{align-self:flex-start;padding:3px 10px;border-radius:999px;font-size:11px;font-weight:600;letter-spacing:.08em;text-transform:uppercase;background:var(--color-primary-soft);color:var(--color-primary-strong)}
+.login-brand-sub{font-size:11px;color:var(--color-text-soft)}
+.login-form{display:flex;flex-direction:column;gap:8px;margin-top:4px}
+.login-full-width{width:100%;margin-top:6px}
+.login-hint{margin-top:10px;font-size:11px;color:var(--color-text-soft);text-align:center}
+
+/* =========================
+   BADGES / SMALL UTILITIES
+   ========================= */
+.badge{display:inline-flex;padding:2px 8px;border-radius:var(--radius-pill);font-size:11px;background-color:var(--color-primary-soft);color:var(--color-primary-strong)}
+.tipo-regra{background:#4caf50}.tipo-erro{background:#e53935}.tipo-info{background:#607d8b}
+
+/* =========================
+   REUSABILITY / PRINT / RESPONSIVE
+   ========================= */
+@media (max-width:768px){.home-row-2{grid-template-columns:1fr}}
+@media print{
+  .app-menu{display:none}
+  .app-main{padding:0}
+  .historico-toolbar,.historico-filtros{display:none}
+  .historico-table-wrapper{box-shadow:none;padding:0}
+}
+
+/* =========================
+   NOTAS / SUGESTÕES
+   =========================
+   - Arquivo limpo e sem duplicação. Para reduzir ainda mais e melhorar manutenção:
+     1) Quebrar em partials: tokens.css, layout.css, components/*.css
+     2) Migrar para SCSS/POSTCSS e usar @use / @import para montar bundles.
+     3) Extrair utilitários repetidos (shadow, spacing) em classes utilitárias.
+   - Teste: verifique componentes interativos (menu ativo, hover, formulários, focus),
+     e rode em dispositivos menores para validar responsividade.
+*/
+
+/* fim do arquivo */

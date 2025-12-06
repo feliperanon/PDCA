@@ -1,0 +1,315 @@
+/* src/style.css - VERSÃO RESTAURADA E COMPLETA */
+
+/* =========================================
+   1. VARIÁVEIS (Cores e Configurações)
+   ========================================= */
+:root {
+  /* Fundo e Superfície */
+  --color-body-bg: #f5f7fa;
+  --color-body-bg-soft: #eef1f6;
+  --color-surface: #ffffff;
+  --color-surface-soft: #f9fafb;
+  
+  /* Bordas e Texto */
+  --color-border-subtle: #e5e7eb;
+  --color-border-strong: #d1d5db;
+  --color-text: #111827;
+  --color-text-muted: #6b7280;
+  --color-text-soft: #9ca3af;
+
+  /* Cores Principais */
+  --color-primary: #2563eb;
+  --color-primary-soft: rgba(37, 99, 235, 0.12);
+  --color-primary-strong: #1d4ed8;
+
+  /* Status PDCA (Essencial para os cards coloridos) */
+  --status-plan: #0ea5e9;
+  --status-plan-soft: rgba(14, 165, 233, 0.14);
+  --status-do: #22c55e;
+  --status-do-soft: rgba(34, 197, 94, 0.14);
+  --status-check: #eab308;
+  --status-check-soft: rgba(234, 179, 8, 0.16);
+  --status-act: #f97316;
+  --status-act-soft: rgba(249, 115, 22, 0.16);
+
+  /* Feedback */
+  --color-success-bg: #ecfdf3;
+  --color-success-text: #166534;
+  --color-error-bg: #fef2f2;
+  --color-error-text: #b91c1c;
+  --color-danger: #dc2626;
+
+  /* Layout */
+  --radius-md: 8px;
+  --radius-pill: 999px;
+  --shadow-soft: 0 2px 6px rgba(15, 23, 42, 0.06);
+  --transition-fast: 140ms ease-out;
+}
+
+/* =========================================
+   2. RESET GERAL
+   ========================================= */
+*, *::before, *::after { box-sizing: border-box; }
+
+body {
+  margin: 0;
+  font-family: system-ui, -apple-system, sans-serif;
+  background: linear-gradient(to bottom, var(--color-body-bg), var(--color-body-bg-soft));
+  color: var(--color-text);
+  -webkit-font-smoothing: antialiased;
+}
+
+a { text-decoration: none; color: inherit; }
+
+/* Scrollbar */
+*::-webkit-scrollbar { width: 6px; }
+*::-webkit-scrollbar-track { background: transparent; }
+*::-webkit-scrollbar-thumb { background-color: #cbd5e1; border-radius: 99px; }
+
+/* =========================================
+   3. LAYOUT E MENU (Dark Blue)
+   ========================================= */
+.app-root { min-height: 100vh; display: flex; flex-direction: column; }
+.app-main { max-width: 1200px; width: 100%; margin: 0 auto; padding: 24px 16px; }
+
+/* Menu Superior Escuro */
+.app-menu {
+  position: sticky;
+  top: 0;
+  z-index: 50;
+  width: 100%;
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 16px;
+  padding: 10px 20px;
+  background: radial-gradient(circle at top left, #1d4ed8 0, #0b1120 55%),
+              radial-gradient(circle at bottom right, #22c55e33 0, transparent 55%),
+              #020617;
+  color: #e5e7eb;
+  box-shadow: 0 4px 20px rgba(0,0,0,0.2);
+  backdrop-filter: blur(8px);
+}
+
+.app-menu-spacer { flex: 1; display: block; }
+.app-menu-links { flex: 1; display: flex; justify-content: center; gap: 10px; }
+.app-menu-right { flex: 1; display: flex; justify-content: flex-end; align-items: center; gap: 14px; }
+
+/* Links do Menu */
+.app-menu-link {
+  position: relative;
+  font-size: 13px;
+  padding: 6px 16px 8px;
+  border-radius: 999px;
+  color: #cbd5f5;
+  background-color: rgba(15, 23, 42, 0.4);
+  white-space: nowrap;
+  transition: all var(--transition-fast);
+}
+
+.app-menu-link:hover {
+  background-color: rgba(15, 23, 42, 0.9);
+  color: white;
+  transform: translateY(-1px);
+}
+
+.app-menu-link.active {
+  background: linear-gradient(135deg, #2563eb, #4f46e5);
+  color: white;
+  box-shadow: 0 0 10px rgba(37, 99, 235, 0.5);
+}
+
+/* Avatar do Usuário */
+.app-menu-avatar {
+  width: 32px; height: 32px;
+  border-radius: 50%;
+  background: radial-gradient(circle at 30% 0, #93c5fd, #1d4ed8);
+  display: flex; align-items: center; justify-content: center;
+  font-weight: bold; color: white;
+  box-shadow: 0 0 0 2px rgba(15, 23, 42, 0.5);
+}
+.app-menu-user-text { display: flex; flex-direction: column; font-size: 11px; line-height: 1.2; }
+.app-menu-user-name { font-weight: 500; font-size: 13px; color: #e5e7eb; }
+.app-menu-logout {
+  background: transparent; border: 1px solid rgba(148, 163, 184, 0.5);
+  color: #e5e7eb; padding: 4px 12px; border-radius: 99px; cursor: pointer;
+  font-size: 12px;
+}
+
+/* Responsivo Menu */
+@media (max-width: 768px) {
+  .app-menu { flex-direction: column; padding: 10px; }
+  .app-menu-spacer { display: none; }
+  .app-menu-links { flex-wrap: wrap; }
+}
+
+/* =========================================
+   4. COMPONENTES: DASHBOARD E CARDS
+   ========================================= */
+.home-row-2 {
+  display: grid;
+  grid-template-columns: repeat(auto-fit, minmax(350px, 1fr));
+  gap: 16px;
+  margin-top: 20px;
+}
+
+.card, .home-card, .detail-card, .form-box {
+  background-color: var(--color-surface);
+  border-radius: var(--radius-md);
+  border: 1px solid var(--color-border-subtle);
+  box-shadow: var(--shadow-soft);
+  padding: 20px;
+}
+
+/* Métricas do Dashboard (os quadradinhos pequenos) */
+.home-dashboard-metrics { display: flex; flex-wrap: wrap; gap: 10px; margin: 12px 0; }
+.home-dashboard-metrics > div {
+  flex: 1; min-width: 100px;
+  padding: 10px;
+  border-radius: 8px;
+  background-color: var(--color-surface-soft);
+  border: 1px solid var(--color-border-subtle);
+  text-align: center;
+}
+.metric-value { font-size: 18px; font-weight: bold; display: block; }
+.metric-label { font-size: 12px; color: var(--color-text-muted); }
+
+/* Lista de Projetos Recentes (Estilo de lista simples) */
+.home-card-list { list-style: none; padding: 0; margin: 0; }
+.home-card-list li a {
+  display: block; padding: 10px; border-bottom: 1px solid #eee;
+  transition: background 0.2s;
+}
+.home-card-list li a:hover { background: #f8fafc; }
+
+/* =========================================
+   5. LISTAGEM PDCA (Estilo dos Cards)
+   ========================================= */
+.pdca-card {
+  display: block;
+  padding: 16px;
+  border-radius: 8px;
+  background: white;
+  border: 1px solid var(--color-border-subtle);
+  margin-bottom: 10px;
+  position: relative;
+  transition: transform 0.2s, box-shadow 0.2s;
+}
+
+.pdca-card:hover {
+  transform: translateY(-2px);
+  box-shadow: 0 4px 12px rgba(0,0,0,0.05);
+}
+
+/* Barrinha colorida lateral */
+.pdca-card::before {
+  content: ""; position: absolute; left: 0; top: 10px; bottom: 10px; width: 4px;
+  border-radius: 0 4px 4px 0;
+  background: linear-gradient(to bottom, var(--status-plan), var(--status-act));
+}
+
+.pdca-card-header { display: flex; justify-content: space-between; align-items: center; margin-bottom: 8px; }
+.pdca-card-title { font-weight: 600; font-size: 15px; color: #1f2937; }
+
+/* Status Pills (As etiquetas coloridas) */
+.pdca-card-status { padding: 4px 10px; border-radius: 99px; font-size: 11px; font-weight: bold; text-transform: uppercase; }
+.status-plan { background: var(--status-plan-soft); color: var(--status-plan); }
+.status-do { background: var(--status-do-soft); color: var(--status-do); }
+.status-check { background: var(--status-check-soft); color: var(--status-check); }
+.status-act { background: var(--status-act-soft); color: var(--status-act); }
+
+/* Filtros (Chips) */
+.filters { display: flex; gap: 10px; margin-bottom: 20px; flex-wrap: wrap; }
+.chip, .btn-chip {
+  padding: 6px 14px; border-radius: 99px;
+  border: 1px solid var(--color-border-strong);
+  background: white; cursor: pointer; font-size: 13px;
+}
+.chip-active, .btn-chip-active {
+  background: var(--color-primary); color: white; border-color: var(--color-primary);
+}
+
+/* =========================================
+   6. PÁGINA DE DETALHES E KANBAN
+   ========================================= */
+.detail-header { display: flex; justify-content: space-between; align-items: flex-start; margin-bottom: 20px; }
+.detail-actions { display: flex; gap: 10px; }
+
+/* Kanban Board (Colunas) */
+.board-grid {
+  display: grid;
+  grid-template-columns: repeat(auto-fit, minmax(250px, 1fr));
+  gap: 16px;
+  margin-top: 24px;
+}
+.board-column {
+  background: var(--color-surface-soft);
+  border-radius: 8px;
+  padding: 12px;
+  border: 1px solid var(--color-border-subtle);
+}
+.board-column-header {
+  font-weight: bold; margin-bottom: 12px; 
+  display: flex; justify-content: space-between;
+  border-bottom: 2px solid #e5e7eb; padding-bottom: 8px;
+}
+
+/* =========================================
+   7. FORMULÁRIOS E BOTÕES (Geral)
+   ========================================= */
+.form-group { margin-bottom: 15px; }
+label { display: block; margin-bottom: 6px; font-weight: 500; font-size: 14px; }
+input, select, textarea {
+  width: 100%; padding: 10px; border-radius: 6px;
+  border: 1px solid var(--color-border-strong);
+  font-family: inherit;
+}
+input:focus, select:focus, textarea:focus {
+  outline: none; border-color: var(--color-primary);
+  box-shadow: 0 0 0 3px var(--color-primary-soft);
+}
+
+button, .btn-primary, .btn-secondary, .btn-save, .btn-danger {
+  padding: 8px 16px; border-radius: 6px;
+  font-weight: 500; cursor: pointer; border: none; font-size: 14px;
+  display: inline-flex; align-items: center; justify-content: center; gap: 6px;
+}
+
+.btn-primary, .btn-save { background: var(--color-primary); color: white; }
+.btn-primary:hover, .btn-save:hover { background: var(--color-primary-strong); }
+.btn-secondary { background: white; border: 1px solid #ccc; color: #374151; }
+.btn-danger { background: var(--color-danger); color: white; }
+
+/* =========================================
+   8. PÁGINA DE LOGIN
+   ========================================= */
+.login-page {
+  min-height: 100vh;
+  display: flex; align-items: center; justify-content: center;
+  background: linear-gradient(to bottom right, #eff6ff, #f8fafc);
+}
+.login-card {
+  width: 100%; max-width: 400px;
+  background: white; padding: 32px;
+  border-radius: 16px; box-shadow: 0 10px 25px rgba(0,0,0,0.05);
+}
+.login-brand-mark {
+  background: var(--color-primary-soft); color: var(--color-primary);
+  padding: 4px 10px; border-radius: 99px; font-weight: bold; font-size: 12px; text-transform: uppercase;
+}
+
+/* =========================================
+   9. NOVO: DIÁRIO DE OPERAÇÕES
+   ========================================= */
+.log-table { width: 100%; border-collapse: collapse; margin-top: 10px; font-size: 14px; background: white; }
+.log-table th { background: #f8fafc; text-align: left; padding: 12px; font-weight: 600; color: #475569; border-bottom: 2px solid #e2e8f0; }
+.log-table td { padding: 12px; border-bottom: 1px solid #e2e8f0; color: #334155; }
+.log-table tr:hover { background: #f1f5f9; }
+
+/* Badges Específicas da Tabela */
+.badge { display: inline-block; padding: 4px 10px; border-radius: 99px; font-size: 11px; font-weight: bold; color: white; }
+.tipo-regra { background-color: #1e40af; } /* Azul */
+.tipo-erro { background-color: #dc2626; }  /* Vermelho */
+.tipo-info { background-color: #0d9488; }  /* Verde Água */
+
+.container-page { max-width: 900px; margin: 0 auto; }

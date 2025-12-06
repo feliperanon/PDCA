@@ -13,6 +13,8 @@ import { PdcaDashboardPage } from "./pages/PdcaDashboardPage.jsx";
 import { PdcaDetailPage } from "./pages/PdcaDetailPage.jsx";
 import { PdcaHistoricoPage } from "./pages/PdcaHistoricoPage.jsx";
 import { LoginPage } from "./pages/LoginPage.jsx";
+// IMPORTAÇÃO NOVA:
+import { OperationsLogPage } from "./pages/OperationsLogPage.jsx";
 
 import { Menu } from "./components/Menu.jsx";
 import { useAuth } from "./context/AuthContext.jsx";
@@ -21,19 +23,11 @@ function RequireAuth({ children }) {
   const { user, loading } = useAuth();
   const location = useLocation();
 
-  console.log("🧱 RequireAuth render:", {
-    path: location.pathname,
-    loading,
-    hasUser: !!user,
-  });
-
   if (loading) {
-    console.log("⏳ RequireAuth: loading TRUE, mostrando carregando...");
     return <div className="app-loading">Carregando...</div>;
   }
 
   if (!user) {
-    console.log("🔁 RequireAuth: sem usuário, redirecionando para /login");
     return (
       <Navigate
         to="/login"
@@ -43,7 +37,6 @@ function RequireAuth({ children }) {
     );
   }
 
-  console.log("✅ RequireAuth: usuário autenticado, liberando rota");
   return children;
 }
 
@@ -53,7 +46,6 @@ export default function ReactApp() {
 
   return (
     <div className="app-root">
-      {/* Não mostra o menu na tela de login */}
       {!isLoginPage && <Menu />}
 
       <main className="app-main">
@@ -103,6 +95,16 @@ export default function ReactApp() {
             element={
               <RequireAuth>
                 <PdcaHistoricoPage />
+              </RequireAuth>
+            }
+          />
+          
+          {/* ROTA NOVA AQUI: */}
+          <Route
+            path="/operacoes"
+            element={
+              <RequireAuth>
+                <OperationsLogPage />
               </RequireAuth>
             }
           />

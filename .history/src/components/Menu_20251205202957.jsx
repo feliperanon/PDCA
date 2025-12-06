@@ -1,3 +1,4 @@
+// src/components/Menu.jsx
 import React from "react";
 import { NavLink, useNavigate } from "react-router-dom";
 import { useAuth } from "../context/AuthContext.jsx";
@@ -16,31 +17,64 @@ export function Menu() {
   };
 
   const displayName = profile?.nome ?? user?.email ?? "Usuário";
-  const initials = displayName.split(" ").map((p) => p[0]).join("").slice(0, 2).toUpperCase();
+
+  const initials = displayName
+    .split(" ")
+    .map((p) => p[0])
+    .join("")
+    .slice(0, 2)
+    .toUpperCase();
 
   return (
     <nav className="app-menu">
       <div className="app-menu-spacer" />
 
+      {/* Links do meio – ficam centralizados */}
       <div className="app-menu-links">
-        <NavLink to="/" className={({ isActive }) => "app-menu-link" + (isActive ? " active" : "")} end>
+        <NavLink
+          to="/"
+          className={({ isActive }) =>
+            "app-menu-link" + (isActive ? " active" : "")
+          }
+          end
+        >
           Início
         </NavLink>
 
-        <NavLink to="/pdca/novo" className={({ isActive }) => "app-menu-link" + (isActive ? " active" : "")}>
+        <NavLink
+          to="/pdca/novo"
+          className={({ isActive }) =>
+            "app-menu-link" + (isActive ? " active" : "")
+          }
+        >
           Novo PDCA
         </NavLink>
 
-        <NavLink to="/dashboard" className={({ isActive }) => "app-menu-link" + (isActive ? " active" : "")}>
+        <NavLink
+          to="/dashboard"
+          className={({ isActive }) =>
+            "app-menu-link" + (isActive ? " active" : "")
+          }
+        >
           Dashboard
         </NavLink>
 
-        <NavLink to="/historico" className={({ isActive }) => "app-menu-link" + (isActive ? " active" : "")}>
+        <NavLink
+          to="/historico"
+          className={({ isActive }) =>
+            "app-menu-link" + (isActive ? " active" : "")
+          }
+        >
           Histórico
         </NavLink>
         
         {/* NOVO LINK AQUI */}
-        <NavLink to="/operacoes" className={({ isActive }) => "app-menu-link" + (isActive ? " active" : "")}>
+        <NavLink
+          to="/operacoes"
+          className={({ isActive }) =>
+            "app-menu-link" + (isActive ? " active" : "")
+          }
+        >
           Diário Op.
         </NavLink>
       </div>
@@ -55,12 +89,22 @@ export function Menu() {
                 <span className="app-menu-user-role">Logística • NL</span>
               </div>
             </div>
-            <button type="button" className="btn-secondary app-menu-logout" onClick={handleLogout}>
+
+            <button
+              type="button"
+              className="btn-secondary app-menu-logout"
+              onClick={handleLogout}
+            >
               Sair
             </button>
           </>
         ) : (
-          <NavLink to="/login" className={({ isActive }) => "app-menu-link" + (isActive ? " active" : "")}>
+          <NavLink
+            to="/login"
+            className={({ isActive }) =>
+              "app-menu-link" + (isActive ? " active" : "")
+            }
+          >
             Login
           </NavLink>
         )}

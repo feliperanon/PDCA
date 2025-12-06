@@ -1,21 +1,22 @@
 /* src/services/aiService.js */
 import { GoogleGenerativeAI } from "@google/generative-ai";
 
-// SUA CHAVE (Mantenha a que você gerou)
-const API_KEY = "AIzaSyCmtLe1w5gf0J-QWDdYacrH1zkNr-5i_-8"; 
+// A TUA CHAVE (A mesma do comando curl que enviaste)
+const API_KEY = "AIzaSyCO7USCPZ6OQfNOMbBxMh7mwhrMhUIwMBU"; 
 
 export async function gerarPdcaComIA(textoProblema) {
-  console.log("Iniciando análise com IA para:", textoProblema);
+  console.log("🚀 Iniciando análise com IA (Modelo 2.0 Flash) para:", textoProblema);
 
-  if (!API_KEY || API_KEY.includes("SUA_API_KEY")) {
+  if (!API_KEY || API_KEY.length < 10) {
     return fallbackSimulation("Chave não configurada");
   }
 
   try {
     const genAI = new GoogleGenerativeAI(API_KEY);
     
-    // 🔥 USANDO O MODELO MAIS RECENTE E RÁPIDO (Agora suportado pela sua lib nova)
-    const model = genAI.getGenerativeModel({ model: "gemini-1.5-flash" });
+    // 🔥 ATUALIZAÇÃO: Usando o modelo 'gemini-2.0-flash' conforme o teu comando curl.
+    // Este parece ser o modelo que a tua chave está autorizada a usar.
+    const model = genAI.getGenerativeModel({ model: "gemini-2.0-flash" });
 
     const prompt = `
       Atue como Especialista em PDCA. Analise: "${textoProblema}"
@@ -38,13 +39,13 @@ export async function gerarPdcaComIA(textoProblema) {
     const response = await result.response;
     const text = response.text();
     
+    // Limpeza para garantir JSON válido
     const jsonString = text.replace(/```json|```/g, "").trim();
     return JSON.parse(jsonString);
 
   } catch (error) {
     console.error("Erro na IA:", error);
-    // Se der erro, mostra mensagem clara na tela
-    return fallbackSimulation("Erro: " + error.message.slice(0, 20));
+    return fallbackSimulation("Erro: " + error.message);
   }
 }
 
@@ -59,9 +60,9 @@ function fallbackSimulation(motivo) {
           turno_sugerido: "-",
           tipo_objeto: "Erro API",
           descricao_objeto: motivo,
-          causas: "1. Biblioteca desatualizada ou Cache.\n2. Tente rodar com --force.",
-          meta: "Reiniciar servidor.",
-          planoAcao: "Pare o servidor e rode: npm run dev -- --force"
+          causas: "1. O modelo gemini-2.0-flash pode não estar ativo.\n2. Verifique a chave.",
+          meta: "Tentar novamente.",
+          planoAcao: "Verifique o console para mais detalhes."
         });
       }, 1000);
     });

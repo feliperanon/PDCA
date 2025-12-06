@@ -1,0 +1,290 @@
+/* src/style.css */
+
+/* =========================================
+   1. TOKENS E VARIÁVEIS (Configurações Gerais)
+   ========================================= */
+:root {
+  /* Cores de Fundo e Superfície */
+  --color-body-bg: #f5f7fa;
+  --color-body-bg-soft: #eef1f6;
+  --color-surface: #ffffff;
+  --color-surface-soft: #f9fafb;
+  
+  /* Bordas */
+  --color-border-subtle: #e5e7eb;
+  --color-border-strong: #d1d5db;
+
+  /* Texto */
+  --color-text: #111827;
+  --color-text-muted: #6b7280;
+  --color-text-soft: #9ca3af;
+
+  /* Cores Principais (Primary) */
+  --color-primary: #2563eb;
+  --color-primary-soft: rgba(37, 99, 235, 0.12);
+  --color-primary-strong: #1d4ed8;
+
+  /* Status PDCA */
+  --status-plan: #0ea5e9;
+  --status-plan-soft: rgba(14, 165, 233, 0.14);
+  --status-do: #22c55e;
+  --status-do-soft: rgba(34, 197, 94, 0.14);
+  --status-check: #eab308;
+  --status-check-soft: rgba(234, 179, 8, 0.16);
+  --status-act: #f97316;
+  --status-act-soft: rgba(249, 115, 22, 0.16);
+
+  /* Feedback (Erro/Sucesso) */
+  --color-success-bg: #ecfdf3;
+  --color-success-text: #166534;
+  --color-error-bg: #fef2f2;
+  --color-error-text: #b91c1c;
+  --color-danger: #dc2626;
+
+  /* Espaçamento e Layout */
+  --radius-sm: 4px;
+  --radius-md: 8px;
+  --radius-pill: 999px;
+  --shadow-soft: 0 2px 6px rgba(15, 23, 42, 0.06);
+  --transition-fast: 140ms ease-out;
+}
+
+/* =========================================
+   2. RESET E BASE
+   ========================================= */
+*, *::before, *::after { box-sizing: border-box; }
+
+body {
+  margin: 0;
+  font-family: system-ui, -apple-system, sans-serif;
+  background: linear-gradient(to bottom, var(--color-body-bg), var(--color-body-bg-soft));
+  color: var(--color-text);
+  -webkit-font-smoothing: antialiased;
+}
+
+a { color: inherit; text-decoration: none; }
+
+/* Scrollbar Bonita */
+*::-webkit-scrollbar { width: 6px; }
+*::-webkit-scrollbar-track { background: transparent; }
+*::-webkit-scrollbar-thumb { background-color: #cbd5e1; border-radius: 99px; }
+
+/* =========================================
+   3. LAYOUT PRINCIPAL (Menu e Container)
+   ========================================= */
+.app-root { min-height: 100vh; display: flex; flex-direction: column; }
+.app-main { max-width: 1200px; width: 100%; margin: 0 auto; padding: 24px 16px; }
+
+/* --- MENU SUPERIOR (Versão Dark Blue Definitiva) --- */
+.app-menu {
+  position: sticky;
+  top: 0;
+  z-index: 50;
+  width: 100%;
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 16px;
+  padding: 10px 20px;
+  /* Fundo gradiente escuro */
+  background: radial-gradient(circle at top left, #1d4ed8 0, #0b1120 55%),
+              radial-gradient(circle at bottom right, #22c55e33 0, transparent 55%),
+              #020617;
+  color: #e5e7eb;
+  box-shadow: 0 10px 25px rgba(15, 23, 42, 0.45);
+  border-bottom: 1px solid rgba(148, 163, 184, 0.4);
+  backdrop-filter: blur(8px);
+}
+
+.app-menu-spacer { flex: 1; display: block; } /* Espaço vazio esquerdo */
+
+.app-menu-links {
+  flex: 1;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  gap: 10px;
+}
+
+.app-menu-right {
+  flex: 1;
+  display: flex;
+  align-items: center;
+  justify-content: flex-end;
+  gap: 14px;
+}
+
+/* Links do Menu */
+.app-menu-link {
+  position: relative;
+  font-size: 13px;
+  padding: 6px 16px 10px;
+  border-radius: 999px;
+  color: #cbd5f5;
+  background-color: rgba(15, 23, 42, 0.4);
+  border: 1px solid transparent;
+  transition: all var(--transition-fast);
+  white-space: nowrap;
+}
+
+.app-menu-link:hover {
+  background-color: rgba(15, 23, 42, 0.9);
+  border-color: rgba(129, 140, 248, 0.7);
+  transform: translateY(-1px);
+}
+
+.app-menu-link.active {
+  background: linear-gradient(135deg, #2563eb, #4f46e5);
+  color: white;
+  border-color: rgba(191, 219, 254, 0.8);
+  box-shadow: 0 0 15px rgba(37, 99, 235, 0.5);
+}
+
+/* Barra luminosa sob o link ativo */
+.app-menu-link.active::after {
+  content: "";
+  position: absolute;
+  left: 50%;
+  transform: translateX(-50%);
+  bottom: 3px;
+  height: 2px;
+  width: 60%;
+  border-radius: 99px;
+  background: linear-gradient(90deg, #22c55e, #a5b4fc);
+}
+
+/* Avatar e User */
+.app-menu-avatar {
+  width: 32px; height: 32px;
+  border-radius: 50%;
+  background: radial-gradient(circle at 30% 0, #93c5fd, #1d4ed8);
+  display: flex; align-items: center; justify-content: center;
+  font-weight: bold; color: white;
+  box-shadow: 0 0 0 2px rgba(15, 23, 42, 0.9);
+}
+
+.app-menu-user-text { display: flex; flex-direction: column; font-size: 11px; }
+.app-menu-user-name { font-weight: 500; font-size: 13px; color: #e5e7eb; }
+.app-menu-user-role { color: #9ca3af; }
+
+.app-menu-logout {
+  background: transparent; border: 1px solid rgba(148, 163, 184, 0.5);
+  color: #e5e7eb; padding: 4px 12px; border-radius: 99px; cursor: pointer;
+}
+
+/* Responsivo do Menu */
+@media (max-width: 768px) {
+  .app-menu { flex-direction: column; padding: 10px; }
+  .app-menu-spacer { display: none; }
+  .app-menu-links, .app-menu-right { width: 100%; justify-content: center; }
+}
+
+/* =========================================
+   4. COMPONENTES UI (Botões, Inputs, Cards)
+   ========================================= */
+
+/* Cards Gerais */
+.card, .home-card, .form-box, .detail-card {
+  background-color: var(--color-surface);
+  border-radius: var(--radius-md);
+  border: 1px solid var(--color-border-subtle);
+  box-shadow: var(--shadow-soft);
+  padding: 20px;
+}
+
+/* Botões */
+button, .btn-primary, .btn-secondary, .btn-save {
+  padding: 8px 16px;
+  border-radius: var(--radius-pill);
+  font-size: 14px;
+  font-weight: 500;
+  cursor: pointer;
+  border: none;
+  transition: transform var(--transition-fast);
+}
+
+.btn-primary, .btn-save {
+  background-color: var(--color-primary);
+  color: white;
+}
+.btn-primary:hover, .btn-save:hover { background-color: var(--color-primary-strong); }
+
+.btn-secondary {
+  background: white; border: 1px solid var(--color-border-strong);
+  color: var(--color-text);
+}
+
+.btn-danger { background-color: var(--color-danger); color: white; }
+
+/* Inputs e Formulários */
+.form-group { margin-bottom: 15px; }
+label { display: block; margin-bottom: 5px; font-weight: 600; font-size: 13px; }
+input, select, textarea {
+  width: 100%;
+  padding: 8px 12px;
+  border-radius: var(--radius-sm);
+  border: 1px solid var(--color-border-strong);
+  font-family: inherit;
+}
+input:focus, select:focus, textarea:focus {
+  outline: none;
+  border-color: var(--color-primary);
+  box-shadow: 0 0 0 2px var(--color-primary-soft);
+}
+
+/* Chips (Filtros) */
+.chip, .btn-chip {
+  padding: 4px 12px; border-radius: 99px;
+  border: 1px solid var(--color-border-strong);
+  background: white; cursor: pointer; font-size: 13px;
+}
+.chip-active, .btn-chip-active {
+  background: var(--color-primary); color: white; border-color: var(--color-primary);
+}
+
+/* =========================================
+   5. PÁGINAS ESPECÍFICAS
+   ========================================= */
+
+/* --- Login --- */
+.login-page {
+  min-height: 100vh;
+  display: flex; align-items: center; justify-content: center;
+  background: linear-gradient(to bottom, #f5f7fa, #eef1f6);
+}
+.login-card {
+  width: 100%; max-width: 400px;
+  padding: 30px;
+  background: rgba(255, 255, 255, 0.95);
+  backdrop-filter: blur(5px);
+  border-radius: 16px;
+  box-shadow: 0 20px 40px rgba(0,0,0,0.1);
+}
+.login-card h1 { margin-top: 0; font-size: 24px; color: #1e293b; }
+
+/* --- Dashboard e Listas --- */
+.home-row-2 {
+  display: grid; grid-template-columns: repeat(auto-fit, minmax(300px, 1fr)); gap: 20px;
+}
+.pdca-card {
+  padding: 12px; border-bottom: 1px solid #eee;
+  position: relative; overflow: hidden;
+}
+.pdca-card::before {
+  content: ""; position: absolute; left: 0; top: 8px; bottom: 8px; width: 4px;
+  background: var(--color-primary); border-radius: 0 4px 4px 0;
+}
+.pdca-card:hover { background-color: #f8fafc; }
+
+/* --- Diário de Operações (Tabela) --- */
+.log-table { width: 100%; border-collapse: collapse; margin-top: 10px; font-size: 14px; }
+.log-table th, .log-table td { padding: 10px; border-bottom: 1px solid #eee; text-align: left; }
+.log-table th { background-color: #f1f5f9; font-weight: 600; color: #475569; }
+
+/* Badges de Status */
+.badge {
+  padding: 2px 8px; border-radius: 99px; font-size: 11px; font-weight: bold; color: white;
+}
+.tipo-regra { background-color: #1e40af; }
+.tipo-erro { background-color: #dc2626; }
+.tipo-info { background-color: #0d9488; }
