@@ -14,7 +14,7 @@ import { PdcaHistoricoPage } from "./pages/PdcaHistoricoPage.jsx";
 import { LoginPage } from "./pages/LoginPage.jsx";
 import { OperationsLogPage } from "./pages/OperationsLogPage.jsx";
 // IMPORTANTE: Nova página de Inteligência
-import { AnalyticsDashboard } from "./pages/AnalyticsDashboard.jsx"; 
+import { AnalyticsDashboard } from "./pages/AnalyticsDashboard.jsx";
 
 import { Menu } from "./components/Menu.jsx";
 import { useAuth } from "./context/AuthContext.jsx";
@@ -105,7 +105,7 @@ export default function ReactApp() {
               </RequireAuth>
             }
           />
-          
+
           {/* NOVA ROTA DE INTELIGÊNCIA */}
           <Route
             path="/inteligencia"
