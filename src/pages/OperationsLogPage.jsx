@@ -12,6 +12,7 @@ import {
     serverTimestamp
 } from "firebase/firestore";
 import { db } from "../firebase";
+import { IntelligenceOperations } from "../components/IntelligenceOperations";
 
 // --- ÍCONES SVG ---
 const IconCheck = () => <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"><path d="M22 11.08V12a10 10 0 1 1-5.93-9.14" /><polyline points="22 4 12 14.01 9 11.01" /></svg>;
@@ -183,7 +184,13 @@ export function OperationsLogPage() {
 
     // --- ESTADOS ---
     const [logs, setLogs] = useState([]); // TODOS os logs
-    const [dataFiltro, setDataFiltro] = useState(new Date().toISOString().split('T')[0]); // Hoje
+    const [dataFiltro, setDataFiltro] = useState(() => {
+        const hoje = new Date();
+        const ano = hoje.getFullYear();
+        const mes = String(hoje.getMonth() + 1).padStart(2, '0');
+        const dia = String(hoje.getDate()).padStart(2, '0');
+        return `${ano}-${mes}-${dia}`;
+    }); // Hoje Local
     const [inputTexto, setInputTexto] = useState('');
     const [tipoManual, setTipoManual] = useState(null);
     const [alertaOntem, setAlertaOntem] = useState(null);
@@ -512,12 +519,6 @@ export function OperationsLogPage() {
             <div className="header">
                 <div>
                     <h1 style={{ margin: 0, fontSize: '20px' }}>Diário de Operações</h1>
-                    <div className="header-controls" style={{ marginTop: '10px' }}>
-                        <div style={{ display: 'flex', alignItems: 'center', gap: '8px' }}>
-                            <IconCalendar />
-                            <input type="date" className="date-filter" value={dataFiltro} onChange={(e) => setDataFiltro(e.target.value)} />
-                        </div>
-                    </div>
                 </div>
                 <div className="score-box">
                     <div className="lives-container">
@@ -561,18 +562,19 @@ export function OperationsLogPage() {
                     </div>
                     <button className="btn-magic" onClick={registrarNovo}>Registrar Ocorrência</button>
                 </div>
-                <div className="intelligence-card">
-                    <IconBrain width="40" height="40" color="#cbd5e1" />
-                    <p style={{ margin: '10px 0' }}>A Inteligência Artificial analisa cada registro para categorizar e sugerir ações.</p>
-                    {/* Agora mostra logs.length (Total no banco) e não logsFiltrados.length */}
-                    <div className="history-stat">Total no Banco: {logs.length}</div>
+                <div className="intelligence-wrapper">
+                    <IntelligenceOperations logs={logs} />
                 </div>
             </div>
 
             <div className="timeline-card">
                 <div className="timeline-header">
-                    <div style={{ display: 'flex', alignItems: 'center', gap: '10px' }}>
-                        <h3 style={{ margin: 0 }}>Histórico ({dataFiltro.split('-').reverse().join('/')})</h3>
+                    <div style={{ display: 'flex', alignItems: 'center', gap: '15px' }}>
+                        <h3 style={{ margin: 0 }}>Histórico</h3>
+                        <div style={{ display: 'flex', alignItems: 'center', gap: '8px' }}>
+                            <IconCalendar />
+                            <input type="date" className="date-filter" value={dataFiltro} onChange={(e) => setDataFiltro(e.target.value)} />
+                        </div>
                         {idsSelecionados.size > 0 && (
                             <button className="btn-bulk-delete" onClick={excluirEmMassa}><IconTrash /> Excluir {idsSelecionados.size}</button>
                         )}
