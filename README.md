@@ -6,100 +6,92 @@
 ![License](https://img.shields.io/badge/Licença-Privada-red)
 ![Tech](https://img.shields.io/badge/Tech-React_%7C_Vite_%7C_Firebase-blue)
 
-O **Sistema PDCA NL** é uma aplicação web criada para estruturar, acompanhar e consolidar melhorias dentro da operação. Serve para dar clareza, disciplina e rastreabilidade aos processos, transformando problemas do dia a dia em soluções organizadas.
+O **Sistema PDCA NL** é uma aplicação web criada para estruturar, acompanhar e consolidar melhorias dentro da operação. Além da metodologia PDCA tradicional, o sistema integra **Inteligência Artificial** e **Gamificação** para engajar a equipe e fornecer insights em tempo real.
 
 ---
 
-## 📊 Visão Geral
+## 📊 Visão Geral e Inovações
 
-O sistema permite:
+### 🧠 Intelligence Operations Center (NOVO)
+Um painel de inteligência que monitora a saúde operacional em tempo real:
+- **Health Score Operacional:** Indicador visual (0-100%) baseado na frequência de erros diários.
+- **Análise de Tendências:** Gráficos interativos (Recharts) mostrando o desempenho dos últimos 7 dias.
+- **Insights Automáticos:** Mensagens inteligentes geradas com base na análise dos logs do dia.
+- **Streak de Proteção:** Gamificação para incentivar dias consecutivos sem falhas.
 
-- ✅ **Criar projetos PDCA completos**
-- 🔒 **Controle de etapas:** Bloqueio lógico para garantir a sequência correta (Plan → Do → Check → Act).
-- 🎯 **Gestão:** Acompanhamento de prioridades, áreas, categorias e responsáveis.
-- 👁️ **Visualização:** Últimos PDCAs criados por fase.
-- 📂 **Histórico:** Consulta completa de concluídos, cancelados e em andamento.
-- ⏱️ **Métricas:** Registro de tempo entre as etapas.
-- 🔄 **Ciclos:** Finalização de ciclos e reabertura automática (looping de melhoria).
-- 📄 **Exportação:** Dados em PDF e CSV.
-- ⚡ **Real-time:** Atualização instantânea com Firebase.
+### 🎮 Gamificação Operacional
+- **Painel do Treinador:** Feedback visual imediato (Coach Good / Coach Bad) dependendo do desempenho do dia.
+- **Sistema de Vidas:** A operação "perde vidas" conforme erros críticos são registrados (visualização de corações).
+- **KPIs Dinâmicos:** Cards que mudam de cor e status instantaneamente para categorias (Expedição, Recebimento, etc.).
 
 ---
 
-## 🧩 Funcionalidades por Etapa
+## 🧩 Modúlos Principais
 
-### 1. Plan (Planejamento)
-* Descrição detalhada do problema.
-* Análise por área e definição de prioridade.
-* Categoria da ocorrência e data alvo inicial.
-* **Trava:** O sistema impede o avanço até que o planejamento esteja completo.
+### 1. Diário de Operações (Logbook)
+O coração da rotina diária.
+- **Registro Rápido:** Interface otimizada para lançar ocorrências sem atrito.
+- **Auto-Categorização (IA):** O sistema identifica automaticamente categoria, cliente e tipo de problema pelo texto digitado.
+- **Histórico:** Timeline completa de eventos com filtros de data.
 
-### 2. Do (Execução)
-* Registro das ações executadas.
-* Atribuição de responsáveis.
-* Datas de execução e upload de comprovações.
-
-### 3. Check (Verificação)
-* Verificação da eficácia da ação.
-* Registros de evidências e necessidade de ajustes.
-
-### 4. Act (Ação/Padronização)
-* Padronização do que funcionou.
-* Encerramento do ciclo.
-* **Reabertura Automática:** Caso o resultado falhe, um novo PDCA é gerado baseado no anterior.
+### 2. Gestão PDCA
+Ciclo completo de melhoria contínua seguindo os 4 passos:
+- **Plan (Planejamento):** Definição de problema, causas, metas e plano de ação.
+- **Do (Execução):** Registro de evidências e controle de prazos.
+- **Check (Verificação):** Validação dos resultados alcançados.
+- **Act (Padronização):** Encerramento ou reabertura de ciclo para melhoria contínua.
 
 ---
 
 ## 🧱 Estrutura de Telas
 
-O fluxo de navegação foi desenhado para ser intuitivo:
-
-* **🏠 Início**
-    * Últimos PDCAs por fase.
-    * Cards explicativos do ciclo.
-    * Acesso rápido (Novo Projeto).
-* **🔄 PDCA (Fluxo Principal)**
-    * Abas sequenciais (Plan, Do, Check, Act) com validação de preenchimento.
-* **📈 Dashboard**
-    * Visualização em colunas (Kanban-style).
-    * Filtros rápidos (Prioridade, Área, Cliente, Responsável).
-    * Indicadores de tempo e áreas críticas.
-* **📜 Histórico**
-    * Lista de Concluídos e Cancelados.
-    * Linha do tempo detalhada.
-* **⚙️ Operações**
-    * Edição, Cancelamento e Exclusão.
-    * Exportação (PDF/CSV).
+* **🏠 Início:** Dashboard geral com status dos projetos.
+* **� Diário de Operações:** Onde a mágica acontece (Logs + Inteligência + Gamificação).
+* **� Projetos PDCA:** Fluxo kanban ou lista dos ciclos em andamento.
+* **⚙️ Configurações:** Gestão de parâmetros e usuários.
 
 ---
 
 ## 🛠 Tecnologias Utilizadas
 
-Este projeto foi construído com ferramentas modernas para garantir performance e escalabilidade:
+Este projeto foi construído com ferramentas modernas para garantia de performance e experiência de usuário premium:
 
 * **Frontend:** [React](https://reactjs.org/) + [Vite](https://vitejs.dev/)
 * **Linguagem:** JavaScript (ES6+)
-* **Estilização:** CSS Moderno (Responsivo)
+* **Visualização de Dados:** [Recharts](https://recharts.org/) (Gráficos performáticos)
+* **Estilização:** CSS Moderno (Glassmorphism, Animações, Responsivo)
 * **Backend / Database:** [Firebase](https://firebase.google.com/) (Firestore + Authentication)
-* **Controle de Versão:** Git + GitHub
-* **Bibliotecas Auxiliares:**
-    * *Geração de PDF:* jsPDF
-    * *Ícones:* Lucide React / React Icons
+* **Ícones:** Lucide React
 
 ---
 
 ## 🚀 Como rodar o projeto
 
-Siga os passos abaixo para executar o ambiente de desenvolvimento localmente.
-
 ### Pré-requisitos
-Certifique-se de ter instalado:
-* [Node.js](https://nodejs.org/)
+* [Node.js](https://nodejs.org/) (v16+)
 * [Git](https://git-scm.com/)
 
 ### Passo a passo
 
 1. **Clone o repositório**
    ```bash
-   git clone [https://github.com/feliperanon/pdca.git](https://github.com/feliperanon/pdca.git)
+   git clone https://github.com/feliperanon/PDCA.git
    cd pdca
+   ```
+
+2. **Instale as dependências**
+   ```bash
+   npm install
+   ```
+
+3. **Inicie o servidor de desenvolvimento**
+   ```bash
+   npm run dev
+   ```
+
+4. **Acesse no navegador**
+   O projeto estará rodando em `http://localhost:5173`.
+
+---
+
+© 2025 Felipe Ranon - Desenvolvido para Excelência Operacional
