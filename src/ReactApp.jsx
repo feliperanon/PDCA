@@ -13,6 +13,7 @@ import { PdcaDetailPage } from "./pages/PdcaDetailPage.jsx";
 import { PdcaHistoricoPage } from "./pages/PdcaHistoricoPage.jsx";
 import { LoginPage } from "./pages/LoginPage.jsx";
 import { OperationsLogPage } from "./pages/OperationsLogPage.jsx";
+import { DailyOperationsPage } from "./pages/DailyOperationsPage.jsx";
 // IMPORTANTE: Nova página de Inteligência
 import { AnalyticsDashboard } from "./pages/AnalyticsDashboard.jsx";
 
@@ -102,6 +103,14 @@ export default function ReactApp() {
             element={
               <RequireAuth>
                 <OperationsLogPage />
+              </RequireAuth>
+            }
+          />
+          <Route
+            path="/diario"
+            element={
+              <RequireAuth>
+                <DailyOperationsPage />
               </RequireAuth>
             }
           />

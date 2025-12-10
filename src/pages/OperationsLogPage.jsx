@@ -1,4 +1,5 @@
 import React, { useState, useEffect } from 'react';
+import { useNavigate } from 'react-router-dom';
 import {
     collection,
     addDoc,
@@ -9,7 +10,9 @@ import {
     updateDoc,
     deleteDoc,
     writeBatch,
-    serverTimestamp
+    serverTimestamp,
+    setDoc,
+    getDoc
 } from "firebase/firestore";
 import { db } from "../firebase";
 import { IntelligenceOperations } from "../components/IntelligenceOperations";
@@ -29,6 +32,7 @@ const IconShield = () => <svg width="16" height="16" viewBox="0 0 24 24" fill="n
 const IconCalendar = () => <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"><rect x="3" y="4" width="18" height="18" rx="2" ry="2" /><line x1="16" y1="2" x2="16" y2="6" /><line x1="8" y1="2" x2="8" y2="6" /><line x1="3" y1="10" x2="21" y2="10" /></svg>;
 const IconHeart = ({ filled }) => <svg width="20" height="20" viewBox="0 0 24 24" fill={filled ? "#ef4444" : "none"} stroke="#ef4444" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"><path d="M20.84 4.61a5.5 5.5 0 0 0-7.78 0L12 5.67l-1.06-1.06a5.5 5.5 0 0 0-7.78 7.78l1.06 1.06L12 21.23l7.78-7.78 1.06-1.06a5.5 5.5 0 0 0 0-7.78z" /></svg>;
 const IconTrophy = () => <svg width="40" height="40" viewBox="0 0 24 24" fill="none" stroke="#FFD700" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"><path d="M6 9H4.5a2.5 2.5 0 0 1 0-5H6" /><path d="M18 9h1.5a2.5 2.5 0 0 0 0-5H18" /><path d="M4 22h16" /><path d="M10 14.66V17c0 .55-.47.98-.97 1.21C7.85 18.75 7 20.24 7 22" /><path d="M14 14.66V17c0 .55.47.98.97 1.21C16.15 18.75 17 20.24 17 22" /><path d="M18 2H6v7a6 6 0 0 0 12 0V2Z" /></svg>;
+const IconChart = () => <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"><line x1="18" y1="20" x2="18" y2="10" /><line x1="12" y1="20" x2="12" y2="4" /><line x1="6" y1="20" x2="6" y2="14" /></svg>;
 
 const TIPOS_OCORRENCIA = [
     "Erro / Falha operacional", "Melhoria / Oportunidade", "Alerta / Risco", "Quebra / Perda",
@@ -37,20 +41,18 @@ const TIPOS_OCORRENCIA = [
     "WhatsApp / Externo"
 ];
 
-// LISTA DE CATEGORIAS ATUALIZADA
 const CATEGORIAS_LISTA = [
     "Recebimento (RM)", "Expedição", "Câmara Fria", "Seleção", "Blocado", "Embandejamento", "Contagem de Estoque"
 ];
 
 // --- FUNÇÕES AUXILIARES ---
 
-// 1. Função para remover acentos (Torna a IA mais inteligente)
-// Exemplo: "Seleção" vira "selecao", "Câmara" vira "camara"
+// 1. Função para remover acentos
 const removerAcentos = (texto) => {
     return texto.normalize("NFD").replace(/[\u0300-\u036f]/g, "").toLowerCase();
 };
 
-// 2. Formatação Inteligente (Visual)
+// 2. Formatação Inteligente
 const formatarTextoIA = (texto) => {
     if (!texto) return "";
     let t = texto.trim();
@@ -60,21 +62,15 @@ const formatarTextoIA = (texto) => {
     return t;
 };
 
-// 3. Data Segura
+// 3. Data e Hora Segura
 const renderSafeData = (valor) => {
     if (!valor) return "";
-    if (typeof valor === 'object' && valor.seconds) {
-        return new Date(valor.seconds * 1000).toLocaleDateString('pt-BR');
-    }
+    if (typeof valor === 'object' && valor.seconds) return new Date(valor.seconds * 1000).toLocaleDateString('pt-BR');
     return valor;
 };
-
-// 4. Hora Segura
 const renderSafeHora = (valor) => {
     if (!valor) return "--:--";
-    if (typeof valor === 'object' && valor.seconds) {
-        return new Date(valor.seconds * 1000).toLocaleTimeString('pt-BR', { hour: '2-digit', minute: '2-digit' });
-    }
+    if (typeof valor === 'object' && valor.seconds) return new Date(valor.seconds * 1000).toLocaleTimeString('pt-BR', { hour: '2-digit', minute: '2-digit' });
     if (typeof valor === 'string' && valor.includes(':')) return valor.substring(0, 5);
     return valor;
 };
@@ -90,8 +86,9 @@ function calcularDataAlvo(prioridade) {
 }
 
 export function OperationsLogPage() {
+    const navigate = useNavigate();
 
-    // --- CSS ---
+    // --- CSS EMBUTIDO ---
     const styles = `
     :root { --primary: #2563eb; --primary-dark: #1e40af; --danger: #dc2626; --success: #16a34a; --warning: #eab308; --bg: #f5f7fa; --surface: #ffffff; --text: #1f2937; --border: #e5e7eb; }
     body { font-family: 'Inter', -apple-system, sans-serif; background: var(--bg); color: var(--text); margin: 0; }
@@ -181,44 +178,74 @@ export function OperationsLogPage() {
     @keyframes pulse { 0% { box-shadow: 0 0 0 0 rgba(220, 38, 38, 0.4); } 70% { box-shadow: 0 0 0 10px rgba(220, 38, 38, 0); } 100% { box-shadow: 0 0 0 0 rgba(220, 38, 38, 0); } }
     @media (max-width: 768px) { .main-grid { grid-template-columns: 1fr; } .kpi-grid { flex-direction: column; } }
   `;
-
     // --- ESTADOS ---
-    const [logs, setLogs] = useState([]); // TODOS os logs
+    const [logs, setLogs] = useState([]);
     const [dataFiltro, setDataFiltro] = useState(() => {
         const hoje = new Date();
         const ano = hoje.getFullYear();
         const mes = String(hoje.getMonth() + 1).padStart(2, '0');
         const dia = String(hoje.getDate()).padStart(2, '0');
         return `${ano}-${mes}-${dia}`;
-    }); // Hoje Local
+    });
     const [inputTexto, setInputTexto] = useState('');
     const [tipoManual, setTipoManual] = useState(null);
     const [alertaOntem, setAlertaOntem] = useState(null);
-
-    // Seleção em Massa
     const [idsSelecionados, setIdsSelecionados] = useState(new Set());
-
-    // Controle de Modais
     const [showPdcaModal, setShowPdcaModal] = useState(false);
     const [showEditModal, setShowEditModal] = useState(false);
+    const [showMetricsModal, setShowMetricsModal] = useState(false);
 
-    // Forms
     const [pdcaForm, setPdcaForm] = useState({
         logId: null, descricao: '', causas: '', indicadorAntes: '', indicadorMeta: '', metaDescritiva: '', planoAcao: '', tipo: '', tipoObjeto: '', descricaoObjeto: ''
     });
     const [editForm, setEditForm] = useState({ id: null, textoOriginal: '', tipo: '', categoria: '', cliente: '', origem: '' });
+    const [metricsForm, setMetricsForm] = useState({
+        data: new Date().toISOString().split('T')[0],
+        tonelagem: '',
+        horaSaida: '',
+        faltaExpedicao: 0,
+        faltaSelecao: 0,
+        faltaRecebimento: 0,
+        feriado: false,
+        chegadaTardia: false
+    });
 
-    // --- EFEITOS (FIRESTORE) ---
+
+    // [NEW] Estado para dados em tempo real do Espelho Operacional
+    const [mirrorData, setMirrorData] = useState(null);
+
+    // --- EFEITOS ---
+    // 1. Listener do Espelho Operacional (Tempo Real)
+    useEffect(() => {
+        const getShift = () => {
+            const h = new Date().getHours();
+            if (h >= 6 && h < 14) return 'manha';
+            if (h >= 14 && h < 22) return 'tarde';
+            return 'noite';
+        };
+        const hoje = new Date().toISOString().split('T')[0];
+        const shift = getShift();
+        const docId = `${hoje}_${shift}`;
+
+        const unsub = onSnapshot(doc(db, "daily_operations", docId), (docSnap) => {
+            if (docSnap.exists()) {
+                setMirrorData(docSnap.data());
+            } else {
+                setMirrorData(null);
+            }
+        });
+        return () => unsub();
+    }, []);
+
+    // 2. Listener de Logs
     useEffect(() => {
         const q = query(collection(db, "operation_logs"), orderBy("timestamp", "desc"));
         const unsubscribe = onSnapshot(q, (snapshot) => {
-            // 1. Mapeamos tudo, inclusive vazios, para ter o "logs" completo
             const logsData = snapshot.docs.map(doc => {
                 const data = doc.data();
                 return {
                     id: doc.id,
                     ...data,
-                    // Não formatamos aqui para não perder dados originais se for vazio, tratamos na exibição
                     textoOriginal: data.textoOriginal ? formatarTextoIA(data.textoOriginal) : "",
                     tipo: data.tipo || "Outros",
                     categoria: data.categoria || "Geral",
@@ -227,8 +254,7 @@ export function OperationsLogPage() {
                     data: data.data || ""
                 };
             });
-
-            setLogs(logsData); // Guarda TUDO no estado principal
+            setLogs(logsData);
             verificarOntem(logsData);
         }, (error) => console.error("Erro logs:", error));
         return () => unsubscribe();
@@ -244,12 +270,8 @@ export function OperationsLogPage() {
         else setAlertaOntem(null);
     };
 
-    // --- FILTRO DE DATA (E REMOÇÃO DE VAZIOS NA VISUALIZAÇÃO) ---
     const logsFiltrados = logs.filter(log => {
-        // 1. Filtra Vazios para a tabela e KPIs
         if (!log.textoOriginal || log.textoOriginal.trim() === "") return false;
-
-        // 2. Filtra Data
         const partes = log.data.split('/');
         if (partes.length === 3) {
             const dataLogFormatada = `${partes[2]}-${partes[1]}-${partes[0]}`;
@@ -258,12 +280,10 @@ export function OperationsLogPage() {
         return false;
     });
 
-    // --- LÓGICA DE EXCLUSÃO (CORRIGIDA) ---
     const excluirLog = async (id) => {
         if (window.confirm('Tem certeza que deseja excluir este registro permanentemente do Firebase?')) {
             try {
                 await deleteDoc(doc(db, "operation_logs", id));
-                // O onSnapshot vai atualizar a tela sozinho
             } catch (error) {
                 console.error("Erro ao excluir:", error);
                 alert("Erro de permissão ou conexão ao excluir.");
@@ -287,44 +307,23 @@ export function OperationsLogPage() {
         }
     };
 
-    // --- INTELIGÊNCIA REFINADA (COM CORREÇÃO DE ACENTOS) ---
     const analisarTexto = (texto) => {
-        // Agora usamos a função que remove acentos para comparar
         const t = removerAcentos(texto || "");
-
-        // MUDANÇA: O padrão agora é 'Geral' e não 'Expedição' para evitar erros
         let cat = 'Geral';
         let tipo = 'Planejamento / Decisão do dia';
         let cliente = 'Geral';
 
-        // --- CATEGORIAS (Ordem de prioridade ajustada) ---
-
-        // 1. Recebimento (RM)
         if (t.includes('rm') || t.includes('recebimento') || t.includes('chegou') || t.includes('chegada') || t.includes('conferencia') || t.includes('fornecedor') || t.includes('nota fiscal') || t.includes('descarga')) cat = 'Recebimento (RM)';
-
-        // 2. Seleção (Prioridade alta para palavras como "quebra na seleção")
         else if (t.includes('selecao') || t.includes('selecionar') || t.includes('triagem') || t.includes('escolha') || t.includes('classificacao')) cat = 'Seleção';
-
-        // 3. Câmara Fria
         else if (t.includes('camara') || t.includes('fria') || t.includes('geladeira') || t.includes('temperatura') || t.includes('climatizacao') || t.includes('perecivel')) cat = 'Câmara Fria';
-
-        // 4. Blocado
         else if (t.includes('blocado') || t.includes('sacos') || t.includes('caixas') || t.includes('batata') || t.includes('cebola') || t.includes('abobora') || t.includes('palete') || t.includes('pilha')) cat = 'Blocado';
-
-        // 5. Embandejamento
         else if (t.includes('embandejamento') || t.includes('bandeja') || t.includes('filme') || t.includes('embalar') || t.includes('etiqueta') || t.includes('peso')) cat = 'Embandejamento';
-
-        // 6. Contagem de Estoque
         else if (t.includes('contagem') || t.includes('estoque') || t.includes('inventario') || t.includes('auditoria') || t.includes('divergencia') || t.includes('furo')) cat = 'Contagem de Estoque';
-
-        // 7. Expedição (Fica por último ou verificamos palavras específicas)
         else if (t.includes('expedicao') || t.includes('expedir') || t.includes('separacao') || t.includes('carregamento') || t.includes('embarque') || t.includes('saida') || t.includes('rota')) cat = 'Expedição';
-
         else if (t.includes('frota') || t.includes('caminhao') || t.includes('veiculo') || t.includes('motorista')) cat = 'Frota';
         else if (t.includes('rh') || t.includes('atestado') || t.includes('faltou')) cat = 'RH';
         else if (t.includes('manutencao') || t.includes('conserto') || t.includes('quebrou')) cat = 'Manutenção';
 
-        // --- TIPOS DE OCORRÊNCIA ---
         if (t.includes('melhoria') || t.includes('ideia') || t.includes('sugestao')) tipo = 'Melhoria / Oportunidade';
         else if (t.includes('erro') || t.includes('falha') || t.includes('esqueci')) tipo = 'Erro / Falha operacional';
         else if (t.includes('alerta') || t.includes('risco') || t.includes('atraso')) tipo = 'Alerta / Risco';
@@ -334,7 +333,6 @@ export function OperationsLogPage() {
         else if (t.includes('treinamento')) tipo = 'Treinamento / Capacitação';
         else if (t.includes('whatsapp')) tipo = 'WhatsApp / Externo';
 
-        // --- CLIENTES ---
         if (t.includes('verdemar')) cliente = 'Verdemar';
         else if (t.includes('rena')) cliente = 'Rena';
         else if (t.includes('carrefour')) cliente = 'Carrefour';
@@ -378,7 +376,6 @@ export function OperationsLogPage() {
         else setIdsSelecionados(new Set(logsFiltrados.map(l => l.id)));
     };
 
-    // --- EDIÇÃO (Lógica Blindada de WhatsApp e Cliente) ---
     const abrirModalEdicao = (log) => {
         setEditForm({
             id: log.id,
@@ -394,8 +391,6 @@ export function OperationsLogPage() {
     const salvarEdicao = async () => {
         const analise = analisarTexto(editForm.textoOriginal);
         const textoFormatado = formatarTextoIA(editForm.textoOriginal);
-
-        // Se a IA não achar um cliente específico novo, mantém o antigo
         const clienteFinal = analise.cliente !== 'Geral' ? analise.cliente : editForm.cliente;
 
         try {
@@ -405,13 +400,12 @@ export function OperationsLogPage() {
                 tipo: editForm.tipo,
                 categoria: editForm.categoria,
                 cliente: clienteFinal,
-                origem: editForm.origem // Garante que não perde a origem
+                origem: editForm.origem
             });
             setShowEditModal(false);
         } catch (error) { console.error("Erro ao editar:", error); }
     };
 
-    // --- PDCA (MODAL COMPLETO) ---
     const gerarSugestaoPDCA = (texto, tipo) => {
         const t = texto ? texto.toLowerCase() : "";
         let sugestao = { causas: "1. Causa raiz não identificada.", plano: "1. Investigar ocorrência.", tipoObjeto: "Processo", descObjeto: "Processo Operacional" };
@@ -456,7 +450,39 @@ export function OperationsLogPage() {
         } catch (e) { console.error(e); }
     };
 
-    // --- DASHBOARD GAMIFICADO (LÓGICA) ---
+    const abrirModalMetricas = async () => {
+        const hoje = new Date().toISOString().split('T')[0];
+        try {
+            const docRef = doc(db, "daily_metrics", hoje);
+            const docSnap = await getDoc(docRef);
+            if (docSnap.exists()) {
+                setMetricsForm({ ...docSnap.data(), data: hoje });
+            } else {
+                setMetricsForm(prev => ({ ...prev, data: hoje }));
+            }
+            setShowMetricsModal(true);
+        } catch (e) { console.error(e); setShowMetricsModal(true); }
+    };
+
+    const salvarMetricas = async () => {
+        try {
+            const docId = metricsForm.data;
+            await setDoc(doc(db, "daily_metrics", docId), {
+                ...metricsForm,
+                tonelagem: Number(metricsForm.tonelagem),
+                faltaExpedicao: Number(metricsForm.faltaExpedicao),
+                faltaSelecao: Number(metricsForm.faltaSelecao),
+                faltaRecebimento: Number(metricsForm.faltaRecebimento),
+                updatedAt: serverTimestamp()
+            });
+            setShowMetricsModal(false);
+            alert("Métricas Diárias Salvas! O aprendizado foi atualizado.");
+        } catch (error) {
+            console.error("Erro ao salvar métricas:", error);
+            alert("Erro ao salvar.");
+        }
+    };
+
     const statsHoje = logsFiltrados.reduce((acc, log) => {
         const cat = log.categoria || "Geral";
         const tipo = log.tipo || "";
@@ -470,7 +496,6 @@ export function OperationsLogPage() {
     let errosTotais = 0;
     logsFiltrados.forEach(l => { if ((l.tipo || "").includes('Erro')) errosTotais++; });
 
-    // CORAÇÕES: Se tiver mais de 3 erros (score < 3.5), já é dia mau.
     const maxHearts = 5;
     const heartsLeft = Math.max(0, maxHearts - (errosTotais * 0.5));
     const isBadDay = heartsLeft <= 3.5;
@@ -483,12 +508,9 @@ export function OperationsLogPage() {
         if (tipo.includes('WhatsApp')) return 'badge-WhatsApp';
         return 'badge-Outros';
     };
-
     return (
         <div className="app-root">
             <style>{styles}</style>
-
-            {/* PAINEL DO TREINADOR (Gamificação) */}
             <div className={`coach-panel ${isBadDay ? 'coach-bad' : 'coach-good'}`}>
                 <div className="coach-content">
                     {isBadDay ? (
@@ -519,6 +541,10 @@ export function OperationsLogPage() {
             <div className="header">
                 <div>
                     <h1 style={{ margin: 0, fontSize: '20px' }}>Diário de Operações</h1>
+                    <button onClick={() => navigate('/diario')} style={{ marginTop: '5px', padding: '8px 16px', background: '#3b82f6', color: 'white', border: 'none', borderRadius: '8px', cursor: 'pointer', display: 'flex', alignItems: 'center', gap: '8px', fontSize: '12px', fontWeight: 'bold', boxShadow: '0 2px 4px rgba(0,0,0,0.1)' }}>
+                        <IconBolt />
+                        Ir para Espelho Operacional (Novo)
+                    </button>
                 </div>
                 <div className="score-box">
                     <div className="lives-container">
@@ -563,7 +589,7 @@ export function OperationsLogPage() {
                     <button className="btn-magic" onClick={registrarNovo}>Registrar Ocorrência</button>
                 </div>
                 <div className="intelligence-wrapper">
-                    <IntelligenceOperations logs={logs} />
+                    <IntelligenceOperations logs={logs} mirrorData={mirrorData} />
                 </div>
             </div>
 
@@ -579,6 +605,7 @@ export function OperationsLogPage() {
                             <button className="btn-bulk-delete" onClick={excluirEmMassa}><IconTrash /> Excluir {idsSelecionados.size}</button>
                         )}
                     </div>
+                    <button className="btn-new-pdca" style={{ background: '#7c3aed' }} onClick={abrirModalMetricas}><IconChart /> Métricas do Dia</button>
                     <button className="btn-new-pdca" onClick={() => abrirModalPDCA({ textoOriginal: '' })}><IconPlus /> Novo PDCA</button>
                 </div>
                 <table>
@@ -606,7 +633,6 @@ export function OperationsLogPage() {
                                     <td>
                                         <div style={{ display: 'flex', alignItems: 'center', gap: '5px' }}>
                                             {log.categoria}
-                                            {/* ÍCONE DE RASTREIO WHATSAPP PERSISTENTE */}
                                             {(log.tipo.includes('WhatsApp') || (log.origem && log.origem.includes('whatsapp'))) && (
                                                 <IconWhatsapp />
                                             )}
@@ -628,7 +654,6 @@ export function OperationsLogPage() {
                 </table>
             </div>
 
-            {/* MODAL EDIÇÃO */}
             {showEditModal && (
                 <div className="modal-overlay">
                     <section className="modal-card">
@@ -655,7 +680,6 @@ export function OperationsLogPage() {
                 </div>
             )}
 
-            {/* MODAL PDCA RESTAURADO (COM TODOS OS CAMPOS) */}
             {showPdcaModal && (
                 <div className="modal-overlay">
                     <section className="modal-card plan-card">
@@ -680,6 +704,49 @@ export function OperationsLogPage() {
                     </section>
                 </div>
             )}
+
+            {showMetricsModal && (
+                <div className="modal-overlay">
+                    <section className="modal-card">
+                        <div className="card-header-styled">
+                            <h2><IconChart /> Dados do Dia (Aprendizado)</h2>
+                            <button onClick={() => setShowMetricsModal(false)} style={{ background: 'none', border: 'none', cursor: 'pointer' }}><IconX /></button>
+                        </div>
+                        <div className="card-content">
+                            <div><label className="modal-label">Data de Referência</label><input type="date" className="modal-textarea" style={{ minHeight: '40px' }} value={metricsForm.data} onChange={(e) => setMetricsForm({ ...metricsForm, data: e.target.value })} /></div>
+
+                            <div className="form-grid-2">
+                                <div><label className="modal-label">Tonelagem (Kg)</label><input type="number" placeholder="Ex: 38000" className="modal-textarea" style={{ minHeight: '40px' }} value={metricsForm.tonelagem} onChange={(e) => setMetricsForm({ ...metricsForm, tonelagem: e.target.value })} /></div>
+                                <div><label className="modal-label">Horário Saída Caminhão</label><input type="time" className="modal-textarea" style={{ minHeight: '40px' }} value={metricsForm.horaSaida} onChange={(e) => setMetricsForm({ ...metricsForm, horaSaida: e.target.value })} /></div>
+                            </div>
+
+                            <div style={{ marginTop: '10px', borderTop: '1px solid #eee', paddingTop: '10px' }}>
+                                <label className="modal-label" style={{ color: 'var(--danger)' }}>Absenteísmo (Faltas)</label>
+                                <div style={{ display: 'flex', gap: '10px', marginTop: '5px' }}>
+                                    <div style={{ flex: 1 }}><label style={{ fontSize: '11px' }}>Expedição</label><input type="number" className="modal-textarea" style={{ minHeight: '35px' }} value={metricsForm.faltaExpedicao} onChange={(e) => setMetricsForm({ ...metricsForm, faltaExpedicao: e.target.value })} /></div>
+                                    <div style={{ flex: 1 }}><label style={{ fontSize: '11px' }}>Seleção</label><input type="number" className="modal-textarea" style={{ minHeight: '35px' }} value={metricsForm.faltaSelecao} onChange={(e) => setMetricsForm({ ...metricsForm, faltaSelecao: e.target.value })} /></div>
+                                    <div style={{ flex: 1 }}><label style={{ fontSize: '11px' }}>Recebimento</label><input type="number" className="modal-textarea" style={{ minHeight: '35px' }} value={metricsForm.faltaRecebimento} onChange={(e) => setMetricsForm({ ...metricsForm, faltaRecebimento: e.target.value })} /></div>
+                                </div>
+                            </div>
+
+                            <div style={{ marginTop: '15px', display: 'flex', gap: '20px' }}>
+                                <label style={{ display: 'flex', alignItems: 'center', gap: '8px', cursor: 'pointer' }}>
+                                    <input type="checkbox" checked={metricsForm.feriado} onChange={(e) => setMetricsForm({ ...metricsForm, feriado: e.target.checked })} /> Feriado?
+                                </label>
+                                <label style={{ display: 'flex', alignItems: 'center', gap: '8px', cursor: 'pointer' }}>
+                                    <input type="checkbox" checked={metricsForm.chegadaTardia} onChange={(e) => setMetricsForm({ ...metricsForm, chegadaTardia: e.target.checked })} /> Chegada Tardia de Mercadoria?
+                                </label>
+                            </div>
+
+                            <div className="section-actions">
+                                <button className="btn-secondary" onClick={() => setShowMetricsModal(false)}>Cancelar</button>
+                                <button className="btn-primary" onClick={salvarMetricas}>Salvar Dados</button>
+                            </div>
+                        </div>
+                    </section>
+                </div>
+            )}
+
         </div>
     );
 }

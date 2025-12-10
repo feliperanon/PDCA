@@ -1,9 +1,9 @@
 import React, { useState, useEffect } from 'react';
 import {
     BarChart, Bar, XAxis, YAxis, CartesianGrid, Tooltip, ResponsiveContainer,
-    LineChart, Line, Cell
+    LineChart, Line, Cell, ScatterChart, Scatter, ZAxis
 } from 'recharts';
-import { collection, query, orderBy, onSnapshot } from "firebase/firestore";
+import { collection, query, orderBy, onSnapshot, getDocs } from "firebase/firestore";
 import { db } from "../firebase";
 
 // --- ÍCONES ---
@@ -54,6 +54,40 @@ function extrairPadroesCronicos(logs) {
     });
 
     return padroes.sort((a, b) => b.count - a.count);
+}
+
+// --- INTELLIGENCE CORE: K-MEANS CLUSTERING ---
+function runKMeans(points, k = 3) {
+    if (points.length < k) return null;
+
+    // 1. Init Centroids (Random)
+    let centroids = points.slice(0, k).map(p => ({ x: p.x, y: p.y }));
+    let assignments = new Array(points.length).fill(0);
+
+    for (let iter = 0; iter < 10; iter++) {
+        // Assign
+        assignments = points.map(p => {
+            let minDist = Infinity;
+            let cIdx = 0;
+            centroids.forEach((c, idx) => {
+                const dist = Math.sqrt(Math.pow(p.x - c.x, 2) + Math.pow(p.y - c.y, 2));
+                if (dist < minDist) { minDist = dist; cIdx = idx; }
+            });
+            return cIdx;
+        });
+
+        // Update
+        const sums = Array(k).fill(0).map(() => ({ x: 0, y: 0, count: 0 }));
+        points.forEach((p, idx) => {
+            const c = assignments[idx];
+            sums[c].x += p.x;
+            sums[c].y += p.y;
+            sums[c].count++;
+        });
+        centroids = sums.map((s, i) => s.count === 0 ? centroids[i] : { x: s.x / s.count, y: s.y / s.count });
+    }
+
+    return { centroids, assignments };
 }
 
 export function AnalyticsDashboard() {
@@ -141,6 +175,107 @@ export function AnalyticsDashboard() {
         return () => unsubscribe();
     }, []);
 
+    // --- FIRESTORE DAILY OPERATIONS (REAL DATA) ---
+    const [dailyOps, setDailyOps] = useState([]);
+    useEffect(() => {
+        const fetchOps = async () => {
+            try {
+                // Busca últimos 30 dias para análise
+                const q = query(collection(db, "daily_operations"), orderBy("date", "asc"));
+                const querySnapshot = await getDocs(q);
+                const data = querySnapshot.docs.map(doc => ({ id: doc.id, ...doc.data() }));
+                setDailyOps(data);
+            } catch (e) { console.error("Erro daily_operations:", e); }
+        };
+        fetchOps();
+    }, []);
+
+    // --- CÉREBRO DA IA (REGRESSÃO LINEAR & CORRELAÇÔES) ---
+    const analysisResult = React.useMemo(() => {
+        // Preparar dados: X = Tonelagem, Y = Hr Saída (Decimal)
+        const validPoints = dailyOps.map(op => {
+            if (!op.tonelagem || !op.hora_saida) return null;
+            const [h, m] = op.hora_saida.split(':').map(Number);
+            const yTime = h + (m / 60);
+            const xTon = Number(op.tonelagem) / 1000; // Em k
+            return { x: xTon, y: yTime, raw: op };
+        }).filter(Boolean);
+
+        if (validPoints.length < 3) return null; // Precisa de mín de dados
+
+        // 1. Regressão Linear (Método dos Mínimos Quadrados)
+        const n = validPoints.length;
+        const sumX = validPoints.reduce((acc, p) => acc + p.x, 0);
+        const sumY = validPoints.reduce((acc, p) => acc + p.y, 0);
+        const sumXY = validPoints.reduce((acc, p) => acc + (p.x * p.y), 0);
+        const sumXX = validPoints.reduce((acc, p) => acc + (p.x * p.x), 0);
+
+        const slope = (n * sumXY - sumX * sumY) / (n * sumXX - sumX * sumX);
+        const intercept = (sumY - slope * sumX) / n;
+
+        // 2. Correlation (r)
+        const meanX = sumX / n;
+        const meanY = sumY / n;
+        const numerator = validPoints.reduce((acc, p) => acc + ((p.x - meanX) * (p.y - meanY)), 0);
+        const denominator = Math.sqrt(
+            validPoints.reduce((acc, p) => acc + Math.pow(p.x - meanX, 2), 0) *
+            validPoints.reduce((acc, p) => acc + Math.pow(p.y - meanY, 2), 0)
+        );
+        const correlation = numerator / (denominator || 1);
+
+        // 3. Gerar Insights em Texto Natural
+        const insights = [];
+
+        // Insight Tonelagem vs Atraso
+        const delayPer10k = slope * 10; // Horas de atraso por 10k ton
+        const delayMinutes = Math.round(delayPer10k * 60);
+
+        if (correlation > 0.5) {
+            insights.push(`Forte correlação: +10k toneladas geram +${delayMinutes}min de tempo na operação.`);
+        } else if (correlation > 0.3) {
+            insights.push(`Tendência leve: Cargas mais pesadas aumentam o tempo em ~${delayMinutes}min a cada 10k ton.`);
+        } else {
+            insights.push("Não há correlação clara entre peso e horário de saída ainda.");
+        }
+
+        // 4. CLUSTERING (K-MEANS)
+        let dataWithClusters = validPoints.map(p => ({ ...p, cluster: 0 }));
+        let clusterInsights = "";
+
+        if (validPoints.length >= 5) {
+            const kResult = runKMeans(validPoints, 3);
+            if (kResult) {
+                // Identificar Clusters: "Bom" (Menor Y/X), "Ruim" (Maior Y/X)
+                // Vamos classificar baseados no Y médio (Horário de Saída)
+                const sortedCentroids = kResult.centroids.map((c, idx) => ({ ...c, originalIdx: idx }))
+                    .sort((a, b) => a.y - b.y); // 0=Cedo, 2=Tarde
+
+                const mapClusterType = {}; // idx -> 'early'|'mid'|'late'
+                sortedCentroids.forEach((c, rank) => {
+                    if (rank === 0) mapClusterType[c.originalIdx] = { label: 'Fluido ⚡', color: '#10b981' };
+                    if (rank === 1) mapClusterType[c.originalIdx] = { label: 'Normal 😐', color: '#f59e0b' };
+                    if (rank === 2) mapClusterType[c.originalIdx] = { label: 'Crítico 🚨', color: '#ef4444' };
+                });
+
+                dataWithClusters = validPoints.map((p, idx) => ({
+                    ...p,
+                    cluster: kResult.assignments[idx],
+                    clusterInfo: mapClusterType[kResult.assignments[idx]]
+                }));
+
+                const criticalCount = dataWithClusters.filter(p => p.clusterInfo.label.includes('Crítico')).length;
+                if (criticalCount > 0) {
+                    clusterInsights = `Identificados ${criticalCount} dias com padrão "Crítico" (Saída Tardia).`;
+                }
+            }
+        }
+
+        return { slope, intercept, correlation, insights, points: dataWithClusters, clusterInsights };
+
+    }, [dailyOps]);
+
+    const scatterData = analysisResult ? analysisResult.points : [];
+
     // KPIs e Gráficos
     const dadosPareto = Object.entries(logs.reduce((acc, curr) => {
         if ((curr.tipo || "").includes('Erro') || (curr.tipo || "").includes('Falha') || (curr.tipo || "").includes('Risco')) {
@@ -205,6 +340,70 @@ export function AnalyticsDashboard() {
                 </div>
             </div>
 
+            {/* SEÇÃO NOVA: SUPER INTELIGENCIA (CORRELAÇÕES) */}
+            <div className="chart-card" style={{ marginBottom: '30px', borderLeft: '4px solid #7c3aed' }}>
+                <div className="chart-header">
+                    <span style={{ color: '#7c3aed' }}>🧠 SUPER INTELIGÊNCIA OPERACIONAL (BETA)</span>
+                </div>
+                <div style={{ display: 'flex', gap: '20px', flexWrap: 'wrap' }}>
+                    <div style={{ flex: 1, minWidth: '300px' }}>
+                        <h4 style={{ marginTop: 0, fontSize: '14px', color: '#64748b' }}>Correlação: Tonelagem vs Horário de Saída</h4>
+                        <div style={{ width: '100%', height: 300, minHeight: 300 }}>
+                            <ResponsiveContainer width="100%" height="100%">
+                                <ScatterChart margin={{ top: 20, right: 20, bottom: 20, left: 20 }}>
+                                    <CartesianGrid strokeDasharray="3 3" />
+                                    <XAxis type="number" dataKey="x" name="Tonelagem" unit="k" domain={['dataMin - 5', 'dataMax + 5']} label={{ value: 'Tonelagem (k)', position: 'insideBottomRight', offset: -10 }} />
+                                    <YAxis type="number" dataKey="y" name="Horário" unit="h" domain={[6, 20]} label={{ value: 'Hr Saída', angle: -90, position: 'insideLeft' }} />
+                                    <Tooltip cursor={{ strokeDasharray: '3 3' }} content={({ active, payload }) => {
+                                        if (active && payload && payload.length) {
+                                            const data = payload[0].payload;
+                                            return (
+                                                <div style={{ background: 'white', border: '1px solid #ccc', padding: '10px', borderRadius: '8px' }}>
+                                                    <p style={{ margin: 0, fontWeight: 'bold' }}>{new Date(data.data).toLocaleDateString()}</p>
+                                                    <p style={{ margin: 0 }}>Saindo às: {data.horaSaida}</p>
+                                                    <p style={{ margin: 0 }}>Peso: {Number(data.tonelagem).toLocaleString()} kg</p>
+                                                    {data.chegadaTardia && <p style={{ margin: 0, color: 'red', fontSize: '12px' }}>⚠️ Chegada Tardia</p>}
+                                                </div>
+                                            );
+                                        }
+                                        return null;
+                                    }} />
+                                    <Scatter name="Operação" data={scatterData} fill="#8884d8">
+                                        {scatterData.map((entry, index) => (
+                                            <Cell
+                                                key={`cell-${index}`}
+                                                fill={entry.clusterInfo ? entry.clusterInfo.color : (entry.chegadaTardia ? '#ef4444' : '#10b981')}
+                                            />
+                                        ))}
+                                    </Scatter>
+                                </ScatterChart>
+                            </ResponsiveContainer>
+                        </div>
+                    </div>
+                    <div style={{ flex: 1, minWidth: '300px', background: '#f8fafc', padding: '20px', borderRadius: '12px' }}>
+                        <h4 style={{ marginTop: 0, fontSize: '14px', color: '#475569' }}>Insights IA (Machine Learning)</h4>
+                        {!analysisResult ? (
+                            <p style={{ fontSize: '13px', color: '#94a3b8' }}>Coletando dados do Espelho Operacional... (Mínimo 3 registros necessários)</p>
+                        ) : (
+                            <ul style={{ fontSize: '13px', color: '#334155', paddingLeft: '20px', display: 'flex', flexDirection: 'column', gap: '8px' }}>
+                                {analysisResult.insights.map((insight, idx) => (
+                                    <li key={idx}><b>{insight}</b></li>
+                                ))}
+                                {analysisResult.clusterInsights && (
+                                    <li style={{ color: '#7c3aed', fontWeight: 'bold' }}>🤖 {analysisResult.clusterInsights}</li>
+                                )}
+                                <li style={{ marginTop: '10px', fontStyle: 'italic', color: '#64748b' }}>
+                                    Força da Correlação (R²): {(analysisResult.correlation ** 2).toFixed(2)}
+                                </li>
+                            </ul>
+                        )}
+                        <div style={{ marginTop: '20px', fontSize: '12px', color: '#64748b' }}>
+                            A IA recalcula esses modelos a cada novo espelho encerrado.
+                        </div>
+                    </div>
+                </div>
+            </div>
+
             {/* KPI GRID */}
             <div className="gamification-grid">
                 <div className="medal-card">
@@ -222,7 +421,7 @@ export function AnalyticsDashboard() {
                     <span className="medal-value" style={{ color: '#4f46e5' }}>{logs.length}</span>
                     <span className="medal-label">Logs Totais</span>
                 </div>
-            </div>
+            </div >
 
             {/* GRÁFICOS */}
             <div className="charts-grid">
@@ -230,8 +429,8 @@ export function AnalyticsDashboard() {
                     <div className="chart-header">
                         <span>TOP 5 OFENSORES (PARETO)</span>
                     </div>
-                    <div style={{ width: '100%', height: 250 }}>
-                        <ResponsiveContainer>
+                    <div style={{ width: '100%', height: 300, minHeight: 300 }}>
+                        <ResponsiveContainer width="100%" height="100%">
                             <BarChart data={dadosPareto} layout="vertical" margin={{ left: 10 }}>
                                 <CartesianGrid strokeDasharray="3 3" horizontal={false} />
                                 <XAxis type="number" hide />
@@ -249,19 +448,36 @@ export function AnalyticsDashboard() {
 
                 <div className="chart-card">
                     <div className="chart-header">
-                        <span>VOLUME DIÁRIO</span>
+                        <span>Tendência (7 Dias)</span>
                     </div>
-                    <div style={{ width: '100%', height: 250 }}>
-                        <ResponsiveContainer>
+                    <div style={{ width: '100%', height: 300, minHeight: 300 }}>
+                        <ResponsiveContainer width="100%" height="100%">
                             <LineChart data={dadosTendencia}>
-                                <CartesianGrid strokeDasharray="3 3" vertical={false} />
-                                <XAxis dataKey="date" style={{ fontSize: 11 }} />
-                                <YAxis style={{ fontSize: 11 }} />
+                                <CartesianGrid strokeDasharray="3 3" />
+                                <XAxis dataKey="date" fontSize={12} />
+                                <YAxis allowDecimals={false} />
                                 <Tooltip />
-                                <Line type="monotone" dataKey="count" stroke="#6366f1" strokeWidth={3} dot={{ r: 4, fill: '#6366f1' }} activeDot={{ r: 6 }} />
+                                <Line type="monotone" dataKey="count" stroke="#10b981" strokeWidth={3} dot={{ r: 4 }} activeDot={{ r: 8 }} />
                             </LineChart>
                         </ResponsiveContainer>
                     </div>
+                </div>
+            </div>
+
+            <div className="chart-card" style={{ marginBottom: '30px' }}>
+                <div className="chart-header">
+                    <span>VOLUME DIÁRIO</span>
+                </div>
+                <div style={{ width: '100%', height: 300, minHeight: 300 }}>
+                    <ResponsiveContainer width="100%" height="100%">
+                        <LineChart data={dadosTendencia}>
+                            <CartesianGrid strokeDasharray="3 3" vertical={false} />
+                            <XAxis dataKey="date" style={{ fontSize: 11 }} />
+                            <YAxis style={{ fontSize: 11 }} />
+                            <Tooltip />
+                            <Line type="monotone" dataKey="count" stroke="#6366f1" strokeWidth={3} dot={{ r: 4, fill: '#6366f1' }} activeDot={{ r: 6 }} />
+                        </LineChart>
+                    </ResponsiveContainer>
                 </div>
             </div>
 
@@ -295,30 +511,32 @@ export function AnalyticsDashboard() {
             </div>
 
             {/* MODAL PADRÃO */}
-            {modalPadrao && (
-                <div className="modal-overlay" onClick={() => setModalPadrao(null)}>
-                    <div className="modal-body" onClick={e => e.stopPropagation()}>
-                        <div className="modal-header">
-                            <div className="modal-title">
-                                <h3>Padrão: "{modalPadrao.termo}"</h3>
-                                <span>{modalPadrao.count} ocorrências em {modalPadrao.categoria}</span>
-                            </div>
-                            <button onClick={() => setModalPadrao(null)} style={{ border: 'none', background: 'none', cursor: 'pointer' }}><IconX /></button>
-                        </div>
-                        <div className="results-list">
-                            {modalPadrao.exemplos.map(log => (
-                                <div key={log.id} className="result-item" style={{ borderLeftColor: '#ef4444' }}>
-                                    <div className="result-meta">
-                                        <span>{log.data}</span>
-                                        <b style={{ color: '#ef4444' }}>{log.tipo}</b>
-                                    </div>
-                                    <div className="result-text">{log.textoOriginal}</div>
+            {
+                modalPadrao && (
+                    <div className="modal-overlay" onClick={() => setModalPadrao(null)}>
+                        <div className="modal-body" onClick={e => e.stopPropagation()}>
+                            <div className="modal-header">
+                                <div className="modal-title">
+                                    <h3>Padrão: "{modalPadrao.termo}"</h3>
+                                    <span>{modalPadrao.count} ocorrências em {modalPadrao.categoria}</span>
                                 </div>
-                            ))}
+                                <button onClick={() => setModalPadrao(null)} style={{ border: 'none', background: 'none', cursor: 'pointer' }}><IconX /></button>
+                            </div>
+                            <div className="results-list">
+                                {modalPadrao.exemplos.map(log => (
+                                    <div key={log.id} className="result-item" style={{ borderLeftColor: '#ef4444' }}>
+                                        <div className="result-meta">
+                                            <span>{log.data}</span>
+                                            <b style={{ color: '#ef4444' }}>{log.tipo}</b>
+                                        </div>
+                                        <div className="result-text">{log.textoOriginal}</div>
+                                    </div>
+                                ))}
+                            </div>
                         </div>
                     </div>
-                </div>
-            )}
-        </div>
+                )
+            }
+        </div >
     );
 }

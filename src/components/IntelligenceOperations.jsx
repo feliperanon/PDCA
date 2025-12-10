@@ -6,9 +6,9 @@ import {
     Brain, Zap, TrendingUp, AlertTriangle, CheckCircle, Target, Activity
 } from 'lucide-react';
 
-export function IntelligenceOperations({ logs }) {
+export function IntelligenceOperations({ logs, mirrorData }) {
     // --- 1. PROCESSAMENTO DE DADOS ---
-    const { healthScore, trendData, insights, topCategory, streak } = useMemo(() => {
+    const { healthScore, trendData, insights } = useMemo(() => {
         const hoje = new Date().toISOString().split('T')[0];
         const seteDiasAtras = new Date();
         seteDiasAtras.setDate(seteDiasAtras.getDate() - 6);
@@ -33,16 +33,40 @@ export function IntelligenceOperations({ logs }) {
             dadosGrafico.push({ name: dataStr.slice(0, 5), erros: errosDia, total: totalDia });
         }
 
-        // Score de Saúde (Hoje)
+        // Score de Saúde (Prioridade: Dados do Espelho > Logs)
+        let score = 100;
+        let mirrorInsights = [];
+
+        // Definições globais
         const logsHoje = logs.filter(l => l.data === new Date().toLocaleDateString('pt-BR'));
         const errosHoje = logsHoje.filter(l => (l.tipo || "").includes('Erro')).length;
-        let score = 100 - (errosHoje * 15);
-        if (score < 0) score = 0;
+
+        if (mirrorData) {
+            // Se tiver avaliação do líder, usa (cada estrela = 20 pts)
+            if (mirrorData.rating > 0) {
+                score = mirrorData.rating * 20;
+            } else {
+                // Se não tiver rating, calcula baseado em gaps de staff
+                const staff = mirrorData.staff_real || {};
+                let gaps = 0;
+                // Exemplo simplificado: Conta quantos setores tem gap
+                // (Para lógica real precisaria comparar com targets)
+                score = 100; // Placeholder até ter lógica de targets aqui
+            }
+        } else {
+            // Fallback para logs
+            score = Math.max(0, 100 - (errosHoje * 15));
+        }
 
         // Insights Básicos
         const insightsList = [];
-        if (errosHoje === 0 && logsHoje.length > 0) insightsList.push({ type: 'good', text: "Operação impecável hoje! Nenhum erro registrado." });
-        if (errosHoje > 2) insightsList.push({ type: 'bad', text: "Atenção: Alto índice de falhas hoje. Considere uma reunião relâmpago." });
+        if (!mirrorData) {
+            if (errosHoje === 0 && logsHoje.length > 0) insightsList.push({ type: 'good', text: "Operação impecável hoje! Nenhum erro registrado." });
+            if (errosHoje > 2) insightsList.push({ type: 'bad', text: "Atenção: Alto índice de falhas hoje. Considere uma reunião relâmpago." });
+        } else {
+            if (score === 100) insightsList.push({ type: 'good', text: "Líder avaliou o turno como perfeito!" });
+            if (score <= 60) insightsList.push({ type: 'bad', text: "Turno com problemas. Verifique os relatos." });
+        }
 
         // Categoria mais frequente (Check de Gargalo)
         const catCount = {};
@@ -129,7 +153,11 @@ export function IntelligenceOperations({ logs }) {
                         <div style={{ height: '100%', width: `${healthScore}%`, background: scoreColor, transition: 'width 0.5s ease' }}></div>
                     </div>
                     <p style={{ fontSize: '12px', color: '#94a3b8', marginTop: '8px' }}>
-                        {healthScore === 100 ? 'Performance perfeita hoje.' : 'Impactada por falhas recentes.'}
+                        {mirrorData ? (
+                            mirrorData.rating ? `Baseado na avaliação do líder (${mirrorData.rating} estrelas).` : "Monitorando dados do turno ao vivo..."
+                        ) : (
+                            healthScore === 100 ? 'Performance perfeita hoje.' : 'Impactada por falhas recentes.'
+                        )}
                     </p>
                 </div>
 

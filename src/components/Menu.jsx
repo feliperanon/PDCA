@@ -38,11 +38,15 @@ export function Menu() {
         <NavLink to="/historico" className={({ isActive }) => "app-menu-link" + (isActive ? " active" : "")}>
           Histórico
         </NavLink>
-        
+
         <NavLink to="/operacoes" className={({ isActive }) => "app-menu-link" + (isActive ? " active" : "")}>
           Diário Op.
         </NavLink>
-        
+
+        <NavLink to="/diario" className={({ isActive }) => "app-menu-link" + (isActive ? " active" : "")}>
+          Espelho Op.
+        </NavLink>
+
         {/* NOVO LINK INTELIGÊNCIA */}
         <NavLink to="/inteligencia" className={({ isActive }) => "app-menu-link" + (isActive ? " active" : "")}>
           📊 Inteligência
