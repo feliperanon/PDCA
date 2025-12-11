@@ -182,8 +182,18 @@ export function DailyOperationsPage() {
     // Botão "Atualizar" (Salvar Manualmente s/ Fechar)
     const handleUpdate = async () => {
         try {
+            // [NEW] CALCULAR STAFF EFETIVO (Snapshot do momento)
+            const staffEffective = {};
+            SECTORS_CONFIG.forEach(sec => {
+                const meta = targets[sec.key] || 0;
+                const faltas = parseInt(dailyData.staff_real?.[sec.key]) || 0;
+                staffEffective[sec.key] = Math.max(0, meta - faltas);
+            });
+
             await setDoc(doc(db, "daily_operations", docId), {
                 ...dailyData,
+                staff_effective: staffEffective, // [NEW] Salva o calculado
+                targets_snapshot: targets, // [NEW] Salva as metas do dia
                 updatedAt: serverTimestamp(),
                 shift: currentShift,
                 date: selectedDate
@@ -307,18 +317,29 @@ export function DailyOperationsPage() {
 
             {/* BLOCO A: SAÚDE DAS EQUIPES */}
             <div>
-                <div className="section-title">
-                    🏢 Bloco A: Saúde das Equipes (Meta vs Real)
+                <div className="section-title" style={{ justifyContent: 'space-between' }}>
+                    <div style={{ display: 'flex', alignItems: 'center', gap: '8px' }}>
+                        🏢 Bloco A: Saúde das Equipes (Meta vs Real)
+                    </div>
+                    <div style={{ fontSize: '12px', background: '#e2e8f0', padding: '4px 10px', borderRadius: '6px', color: '#475569' }}>
+                        <span style={{ marginRight: '10px' }}>META TOTAL: <b>{targets.totalHeadcount || 0}</b></span>
+                        {/* REAL = META TOTAL - SOMA DAS FALTAS */}
+                        <span>REAL: <b>{(targets.totalHeadcount || 0) - Object.values(dailyData.staff_real || {}).reduce((acc, val) => acc + (parseInt(val) || 0), 0)}</b></span>
+                    </div>
                 </div>
                 <div className="staff-grid">
                     {SECTORS_CONFIG.map(sector => {
-                        const { status, diff } = getStaffStatus(sector.key);
+                        // LOGICA DE FALTAS
                         const meta = targets[sector.key] || 0;
-                        const real = dailyData.staff_real?.[sector.key] ?? '';
+                        const faltas = dailyData.staff_real?.[sector.key] ? parseInt(dailyData.staff_real[sector.key]) : 0;
+                        const realVal = meta - faltas;
+
+                        // Status: Se faltas > 0 -> Danger. Se faltas == 0 -> Safe.
+                        const status = faltas > 0 ? 'danger' : 'safe';
 
                         return (
                             <div key={sector.key} className="staff-card" style={{
-                                borderLeft: `4px solid ${status === 'safe' ? '#16a34a' : status === 'danger' ? '#dc2626' : '#cbd5e1'}`
+                                borderLeft: `4px solid ${status === 'safe' ? '#16a34a' : '#ef4444'}`
                             }}>
                                 <div className="staff-info">
                                     <h3>{sector.label}</h3>
@@ -326,17 +347,18 @@ export function DailyOperationsPage() {
                                 </div>
                                 <div className="staff-input-group">
                                     <div style={{ display: 'flex', alignItems: 'center', gap: '8px' }}>
-                                        <span style={{ fontSize: '11px', color: '#64748b' }}>REAL:</span>
+                                        <span style={{ fontSize: '11px', color: '#64748b' }}>FALTAS:</span>
                                         <input
                                             type="number"
                                             className="staff-input"
-                                            value={real}
+                                            value={dailyData.staff_real?.[sector.key] || ''}
                                             onChange={(e) => updateField('staff_real', e.target.value, sector.key)}
                                             placeholder="0"
+                                            style={{ color: faltas > 0 ? '#ef4444' : 'inherit', borderColor: faltas > 0 ? '#ef4444' : '#e2e8f0' }}
                                         />
                                     </div>
-                                    {status === 'safe' && <div className="badge badge-safe"><IconCheckSafe /> OK</div>}
-                                    {status === 'danger' && <div className="badge badge-danger"><IconWarning /> {diff} Pessoas</div>}
+                                    {status === 'safe' && <div className="badge badge-safe"><IconCheckSafe /> COMPLETO</div>}
+                                    {status === 'danger' && <div className="badge badge-danger"><IconWarning /> -{faltas} Pessoas</div>}
                                 </div>
                             </div>
                         );

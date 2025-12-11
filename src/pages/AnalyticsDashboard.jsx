@@ -13,6 +13,9 @@ const IconWarning = () => <span>⚠️</span>;
 const IconAnalyze = () => <svg width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"><circle cx="12" cy="12" r="10"></circle><line x1="12" y1="16" x2="12" y2="12"></line><line x1="12" y1="8" x2="12.01" y2="8"></line></svg>;
 const IconSearch = () => <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"><circle cx="11" cy="11" r="8" /><line x1="21" y1="21" x2="16.65" y2="16.65" /></svg>;
 const IconX = () => <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"><line x1="18" y1="6" x2="6" y2="18" /><line x1="6" y1="6" x2="18" y2="18" /></svg>;
+const IconFilter = () => <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"><polygon points="22 3 2 3 10 12.46 10 19 14 21 14 12.46 22 3"></polygon></svg>;
+const IconIdea = () => <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="#eab308" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"><path d="M9 18h6" /><path d="M10 22h4" /><path d="M15.09 14c.18-.9.09-1.46-.26-2.03-3-4.9-8.66-1.57-8.83 3.66 0 .58-.42 2.37.58 2.37H15.09z" /><path d="M12 2A7 7 0 0 0 5 9c0 4 3 7 3 7h8s3-3 3-7a7 7 0 0 0-7-7z" /></svg>;
+
 
 // --- LÓGICA DE MINERAÇÃO DE TEXTO ---
 const STOPWORDS = new Set([
@@ -101,6 +104,10 @@ export function AnalyticsDashboard() {
         .dash-title { font-size: 28px; font-weight: 800; color: #0f172a; margin: 0; letter-spacing: -0.5px; }
         .dash-subtitle { color: var(--text-sec); font-size: 15px; margin-top: 5px; }
         
+        /* GRIDS LAYOUT */
+        .grid-2 { display: grid; grid-template-columns: 1fr 1fr; gap: 24px; margin-bottom: 30px; }
+        .grid-3 { display: grid; grid-template-columns: 1fr 1fr 1fr; gap: 24px; margin-bottom: 30px; }
+        
         /* KPI GRID */
         .gamification-grid { display: grid; grid-template-columns: repeat(3, 1fr); gap: 24px; margin-bottom: 30px; }
         .medal-card { 
@@ -164,6 +171,27 @@ export function AnalyticsDashboard() {
     const [padroesCronicos, setPadroesCronicos] = useState([]);
     const [modalPadrao, setModalPadrao] = useState(null);
 
+    // --- FILTROS GLOBAIS ---
+    const [dateRange, setDateRange] = useState({ start: '', end: '' });
+    const [selectedShift, setSelectedShift] = useState('all'); // all, manha, tarde, noite
+
+    // Helper Filter Function
+    const filterByRangeAndShift = (item, dateField = 'date', shiftField = 'shift') => {
+        let passDate = true;
+        let passShift = true;
+
+        if (dateRange.start) passDate = passDate && item[dateField] >= dateRange.start;
+        if (dateRange.end) passDate = passDate && item[dateField] <= dateRange.end;
+
+        if (selectedShift !== 'all') {
+            // Operações tem campo 'shift', Logs não tem campo shift direto (assumindo que logs não filtram por turno por enquanto, ou inferir pelo horário?)
+            // Para logs, vamos ignorar turno por enquanto ou implementar lógica de hora.
+            if (item[shiftField]) passShift = item[shiftField] === selectedShift;
+        }
+
+        return passDate && passShift;
+    };
+
     // --- FIRESTORE ---
     useEffect(() => {
         const q = query(collection(db, "operation_logs"), orderBy("timestamp", "desc"));
@@ -190,18 +218,81 @@ export function AnalyticsDashboard() {
         fetchOps();
     }, []);
 
+    // --- COMPONENT: INFO TIP ---
+    const ChartInfoTip = ({ title, text }) => {
+        const [visible, setVisible] = useState(false);
+        return (
+            <div style={{ position: 'relative', display: 'inline-block', marginLeft: '8px' }}>
+                <div
+                    onMouseEnter={() => setVisible(true)}
+                    onMouseLeave={() => setVisible(false)}
+                    style={{ cursor: 'help', display: 'flex', alignItems: 'center' }}
+                >
+                    <IconIdea />
+                </div>
+                {visible && (
+                    <div style={{
+                        position: 'absolute', bottom: '100%', left: '50%', transform: 'translateX(-50%)',
+                        background: '#fefce8', color: '#854d0e', padding: '12px', borderRadius: '8px',
+                        border: '1px solid #fef08a', width: '250px', zIndex: 50, fontSize: '13px', lineHeight: '1.4',
+                        boxShadow: '0 4px 6px -1px rgba(0,0,0,0.1)', marginBottom: '8px'
+                    }}>
+                        <strong>💡 {title}</strong>
+                        <p style={{ margin: '5px 0 0 0' }}>{text}</p>
+                        <div style={{ position: 'absolute', top: '100%', left: '50%', border: '6px solid transparent', borderTopColor: '#fef08a', transform: 'translateX(-50%)' }} />
+                    </div>
+                )}
+            </div>
+        );
+    };
+
     // --- CÉREBRO DA IA (REGRESSÃO LINEAR & CORRELAÇÔES) ---
     const analysisResult = React.useMemo(() => {
+        const filteredOps = dailyOps.filter(op => filterByRangeAndShift(op, 'date', 'shift'));
+
+        // --- NEW: PRODUCTIVITY METRICS ---
+        const productivitySeries = filteredOps.map(op => {
+            // Somar staff total de todos os setores
+            // Somar staff total de todos os setores
+            let totalStaff = 0;
+            // [NEW] Prioriza staff_effective (calculado no save). Fallback para staff_real (legado)
+            const staffSource = op.staff_effective || op.staff_real;
+            if (staffSource) {
+                totalStaff = Object.values(staffSource).reduce((acc, val) => acc + (Number(val) || 0), 0);
+            }
+            // Tonelagem
+            const ton = Number(op.tonelagem) || 0;
+
+            // Produtividade (kg/pessoa)
+            const prod = totalStaff > 0 ? Math.round(ton / totalStaff) : 0;
+
+            return {
+                date: new Date(op.date).toLocaleDateString(undefined, { day: '2-digit', month: '2-digit' }),
+                prod,
+                ton,
+                staff: totalStaff,
+                fullDate: op.date
+            };
+        }).sort((a, b) => new Date(a.fullDate) - new Date(b.fullDate)).slice(-7); // Last 7 ops
+
         // Preparar dados: X = Tonelagem, Y = Hr Saída (Decimal)
-        const validPoints = dailyOps.map(op => {
+        const validPoints = filteredOps.map(op => {
             if (!op.tonelagem || !op.hora_saida) return null;
             const [h, m] = op.hora_saida.split(':').map(Number);
             const yTime = h + (m / 60);
             const xTon = Number(op.tonelagem) / 1000; // Em k
-            return { x: xTon, y: yTime, raw: op };
+
+            // [NEW] Efficiency Score Calculation (Volume / (Staff * Time))
+            // High Volume, Low Staff, Early Time -> High Score
+            const staffRaw = op.staff_effective || op.staff_real || {};
+            const totalStaff = Object.values(staffRaw).reduce((acc, val) => acc + (Number(val) || 0), 0);
+            // Evitar divisão por zero. Se staff=0 ou Time=0, score=0.
+            const efficiencyScore = (totalStaff > 0 && yTime > 0) ? (Number(op.tonelagem) / (totalStaff * yTime)) : 0;
+
+            return { x: xTon, y: yTime, raw: op, efficiencyScore, totalStaff };
         }).filter(Boolean);
 
-        if (validPoints.length < 3) return null; // Precisa de mín de dados
+        if (validPoints.length < 3) return { slope: 0, correlation: 0, insights: [], points: [], productivitySeries, bestDays: [], worstDays: [] };
 
         // 1. Regressão Linear (Método dos Mínimos Quadrados)
         const n = validPoints.length;
@@ -225,18 +316,12 @@ export function AnalyticsDashboard() {
 
         // 3. Gerar Insights em Texto Natural
         const insights = [];
-
-        // Insight Tonelagem vs Atraso
-        const delayPer10k = slope * 10; // Horas de atraso por 10k ton
+        const delayPer10k = slope * 10;
         const delayMinutes = Math.round(delayPer10k * 60);
 
-        if (correlation > 0.5) {
-            insights.push(`Forte correlação: +10k toneladas geram +${delayMinutes}min de tempo na operação.`);
-        } else if (correlation > 0.3) {
-            insights.push(`Tendência leve: Cargas mais pesadas aumentam o tempo em ~${delayMinutes}min a cada 10k ton.`);
-        } else {
-            insights.push("Não há correlação clara entre peso e horário de saída ainda.");
-        }
+        if (correlation > 0.5) insights.push(`Forte correlação: +10k toneladas geram +${delayMinutes}min de tempo na operação.`);
+        else if (correlation > 0.3) insights.push(`Tendência leve: Cargas mais pesadas aumentam o tempo em ~${delayMinutes}min a cada 10k ton.`);
+        else insights.push("Não há correlação clara entre peso e horário de saída ainda.");
 
         // 4. CLUSTERING (K-MEANS)
         let dataWithClusters = validPoints.map(p => ({ ...p, cluster: 0 }));
@@ -245,39 +330,77 @@ export function AnalyticsDashboard() {
         if (validPoints.length >= 5) {
             const kResult = runKMeans(validPoints, 3);
             if (kResult) {
-                // Identificar Clusters: "Bom" (Menor Y/X), "Ruim" (Maior Y/X)
-                // Vamos classificar baseados no Y médio (Horário de Saída)
-                const sortedCentroids = kResult.centroids.map((c, idx) => ({ ...c, originalIdx: idx }))
-                    .sort((a, b) => a.y - b.y); // 0=Cedo, 2=Tarde
-
-                const mapClusterType = {}; // idx -> 'early'|'mid'|'late'
+                const sortedCentroids = kResult.centroids.map((c, idx) => ({ ...c, originalIdx: idx })).sort((a, b) => a.y - b.y);
+                const mapClusterType = {};
                 sortedCentroids.forEach((c, rank) => {
                     if (rank === 0) mapClusterType[c.originalIdx] = { label: 'Fluido ⚡', color: '#10b981' };
                     if (rank === 1) mapClusterType[c.originalIdx] = { label: 'Normal 😐', color: '#f59e0b' };
                     if (rank === 2) mapClusterType[c.originalIdx] = { label: 'Crítico 🚨', color: '#ef4444' };
                 });
 
-                dataWithClusters = validPoints.map((p, idx) => ({
-                    ...p,
-                    cluster: kResult.assignments[idx],
-                    clusterInfo: mapClusterType[kResult.assignments[idx]]
-                }));
-
+                dataWithClusters = validPoints.map((p, idx) => ({ ...p, cluster: kResult.assignments[idx], clusterInfo: mapClusterType[kResult.assignments[idx]] }));
                 const criticalCount = dataWithClusters.filter(p => p.clusterInfo.label.includes('Crítico')).length;
+
                 if (criticalCount > 0) {
                     clusterInsights = `Identificados ${criticalCount} dias com padrão "Crítico" (Saída Tardia).`;
+
+                    // [AI UPGRADE] Análise de Causa Raiz
+                    const criticalDays = dataWithClusters.filter(p => p.clusterInfo.label.includes('Crítico'));
+                    const avgTonCritical = criticalDays.reduce((a, b) => a + b.x, 0) / criticalCount;
+
+                    // Verificar GAPS de Staff (Comparar Effective vs Target)
+                    let staffIssueCount = 0;
+                    criticalDays.forEach(d => {
+                        const raw = d.raw || {};
+                        const effective = raw.staff_effective || raw.staff_real || {}; // Fallback
+                        const targets = raw.targets_snapshot || {};
+
+                        // Foco na Expedição (Gargalo Comum)
+                        const gapExp = (targets.expedicao || 0) - (effective.expedicao || 0);
+                        if (gapExp > 0) staffIssueCount++;
+                    });
+
+                    if (avgTonCritical > 30) clusterInsights += " Provável causa: Volume excessivo (>30k ton).";
+                    else if (staffIssueCount > 0) clusterInsights += ` Causa Provável: Equipe incompleta (Expedição) em ${staffIssueCount} dias.`;
+                    else clusterInsights += " Volume normal. Investigar gargalos de processo (filas/quebra).";
                 }
             }
         }
 
-        return { slope, intercept, correlation, insights, points: dataWithClusters, clusterInsights };
+        // 5. TOP 5 MELHORES E PIORES DIAS (Baseado em Score de Eficiência)
+        // Score = Kg por Homem-Hora
+        const sortedByScore = [...validPoints].sort((a, b) => b.efficiencyScore - a.efficiencyScore); // Maior Score primeiro
+        const bestDays = sortedByScore.slice(0, 5);
+        const worstDays = sortedByScore.slice(-5).reverse(); // Piores Scores (Menor eficiencia)
 
-    }, [dailyOps]);
+        return { slope, intercept, correlation, insights, points: dataWithClusters, clusterInsights, productivitySeries, bestDays, worstDays };
+
+    }, [dailyOps, dateRange, selectedShift]); // [FIX] Added filter dependencies
 
     const scatterData = analysisResult ? analysisResult.points : [];
+    const prodSeries = analysisResult ? analysisResult.productivitySeries : [];
+    const bestDays = (analysisResult && analysisResult.bestDays) || [];
+    const worstDays = (analysisResult && analysisResult.worstDays) || [];
 
-    // KPIs e Gráficos
-    const dadosPareto = Object.entries(logs.reduce((acc, curr) => {
+    // FILTRAGEM DE LOGS
+    const filteredLogs = logs.filter(l => {
+        // Compatibilidade com campo de data do log (pode ser 'data' ou 'timestamp' convertido)
+        // O formato salvo no log é DD/MM/YYYY na propriedade 'data' ou 'timestamp' firestore.
+        // Vamos assumir que 'data' string YYYY-MM-DD existe ou converter.
+        // O código original extrai data do componente Log.js.
+        // Vamos simplificar: se log.data estiver em YYYY-MM-DD (padrão input date) funciona.
+        // Se estiver DD/MM/YYYY, precisa converter.
+        // Assumindo formato ISO para simplificar filtro agora.
+        return filterByRangeAndShift(l, 'data', 'shift_nulo');
+    });
+
+    const resultados = filteredLogs.filter(l => searchTerm && (
+        (l.textoOriginal || "").toLowerCase().includes(searchTerm.toLowerCase()) ||
+        (l.categoria || "").toLowerCase().includes(searchTerm.toLowerCase())
+    ));
+
+    // RECALCULAR KPIS COM FILTRADOS
+    const dadosPareto = Object.entries(filteredLogs.reduce((acc, curr) => {
         if ((curr.tipo || "").includes('Erro') || (curr.tipo || "").includes('Falha') || (curr.tipo || "").includes('Risco')) {
             const cat = curr.categoria || "Geral";
             acc[cat] = (acc[cat] || 0) + 1;
@@ -285,84 +408,115 @@ export function AnalyticsDashboard() {
         return acc;
     }, {})).map(([name, value]) => ({ name, value })).sort((a, b) => b.value - a.value).slice(0, 5);
 
-    const dadosTendencia = Object.entries(logs.reduce((acc, curr) => {
+    const dadosTendencia = Object.entries(filteredLogs.reduce((acc, curr) => {
         if (curr.data) {
-            const dataKey = curr.data.substring(0, 5);
+            const dataKey = curr.data.substring(0, 5); // DD/MM
             acc[dataKey] = (acc[dataKey] || 0) + 1;
         }
         return acc;
     }, {})).map(([date, count]) => ({ date, count })).slice(-7);
 
-    const totalMelhorias = logs.filter(l => (l.tipo || "").includes('Melhoria')).length;
+    const totalMelhorias = filteredLogs.filter(l => (l.tipo || "").includes('Melhoria')).length;
     const campeaoErros = dadosPareto.length > 0 ? dadosPareto[0].name : "Excelente";
-
-    const resultados = logs.filter(l => searchTerm && (
-        (l.textoOriginal || "").toLowerCase().includes(searchTerm.toLowerCase()) ||
-        (l.categoria || "").toLowerCase().includes(searchTerm.toLowerCase())
-    ));
 
     return (
         <div className="dash-container">
             <style>{styles}</style>
 
             <div className="dash-header">
-                <div>
-                    <h1 className="dash-title">Central de Inteligência</h1>
-                    <p className="dash-subtitle">Visão estratégica e análise preditiva da operação.</p>
-                </div>
-            </div>
-
-            {/* SEÇÃO IMPORTANTE: DETECTOR DE PADRÕES */}
-            <div className="patterns-section">
-                <div className="patterns-header">
-                    <IconAnalyze />
+                <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'flex-start', flexWrap: 'wrap', gap: '20px' }}>
                     <div>
-                        <h2 style={{ fontSize: '18px', fontWeight: 700, margin: 0 }}>Detector de Padrões Recorrentes</h2>
-                        <span style={{ fontSize: '13px', opacity: 0.85 }}>Inteligência artificial analisou {logs.length} registros em busca de problemas crônicos.</span>
+                        <h1 className="dash-title">Central de Inteligência 2.0</h1>
+                        <p className="dash-subtitle">Visão estratégica e análise preditiva da operação.</p>
+                    </div>
+
+                    {/* BARRA DE FILTROS */}
+                    <div style={{ display: 'flex', gap: '10px', background: 'white', padding: '10px', borderRadius: '12px', border: '1px solid #e2e8f0', boxShadow: '0 2px 4px rgba(0,0,0,0.05)' }}>
+                        <div style={{ display: 'flex', flexDirection: 'column' }}>
+                            <label style={{ fontSize: '10px', fontWeight: 'bold', color: '#64748b', marginBottom: '2px' }}>DATA INÍCIO</label>
+                            <input type="date" value={dateRange.start} onChange={e => setDateRange({ ...dateRange, start: e.target.value })} style={{ border: '1px solid #cbd5e1', borderRadius: '6px', padding: '4px 8px', fontSize: '12px' }} />
+                        </div>
+                        <div style={{ display: 'flex', flexDirection: 'column' }}>
+                            <label style={{ fontSize: '10px', fontWeight: 'bold', color: '#64748b', marginBottom: '2px' }}>DATA FIM</label>
+                            <input type="date" value={dateRange.end} onChange={e => setDateRange({ ...dateRange, end: e.target.value })} style={{ border: '1px solid #cbd5e1', borderRadius: '6px', padding: '4px 8px', fontSize: '12px' }} />
+                        </div>
+                        <div style={{ display: 'flex', flexDirection: 'column' }}>
+                            <label style={{ fontSize: '10px', fontWeight: 'bold', color: '#64748b', marginBottom: '2px' }}>TURNO</label>
+                            <select value={selectedShift} onChange={e => setSelectedShift(e.target.value)} style={{ border: '1px solid #cbd5e1', borderRadius: '6px', padding: '4px 8px', fontSize: '12px', background: 'white' }}>
+                                <option value="all">Todos</option>
+                                <option value="manha">Manhã</option>
+                                <option value="tarde">Tarde</option>
+                                <option value="noite">Noite</option>
+                            </select>
+                        </div>
+                        <div style={{ display: 'flex', alignItems: 'center', paddingLeft: '10px' }}>
+                            <button onClick={() => { setDateRange({ start: '', end: '' }); setSelectedShift('all'); }} style={{ background: '#f1f5f9', border: 'none', borderRadius: '6px', padding: '6px', cursor: 'pointer', color: '#64748b' }} title="Limpar Filtros">
+                                <IconFilter />
+                            </button>
+                        </div>
                     </div>
                 </div>
-
-                <div className="patterns-grid">
-                    {padroesCronicos.length === 0 ? (
-                        <div style={{ fontStyle: 'italic', opacity: 0.7 }}>Nenhum padrão crônico detectado. Operação saudável.</div>
-                    ) : (
-                        padroesCronicos.slice(0, 6).map((padrao, idx) => (
-                            <div className="pattern-card" key={idx} onClick={() => setModalPadrao(padrao)}>
-                                <span className="pattern-cat">{padrao.categoria}</span>
-                                <div className="pattern-term">
-                                    "{padrao.termo}"
-                                    <span className="pattern-count">{padrao.count}x</span>
-                                </div>
-                                <div style={{ fontSize: '11px', marginTop: '8px', opacity: 0.8 }}>Clique para ver detalhes</div>
-                            </div>
-                        ))
-                    )}
-                </div>
             </div>
 
-            {/* SEÇÃO NOVA: SUPER INTELIGENCIA (CORRELAÇÕES) */}
+            {/* 1. SUPER INTELIGENCIA (AGORA NO TOPO) */}
             <div className="chart-card" style={{ marginBottom: '30px', borderLeft: '4px solid #7c3aed' }}>
                 <div className="chart-header">
                     <span style={{ color: '#7c3aed' }}>🧠 SUPER INTELIGÊNCIA OPERACIONAL (BETA)</span>
                 </div>
                 <div style={{ display: 'flex', gap: '20px', flexWrap: 'wrap' }}>
+                    {/* COLUNA ESQUERDA: GRÁFICO */}
                     <div style={{ flex: 1, minWidth: '300px' }}>
-                        <h4 style={{ marginTop: 0, fontSize: '14px', color: '#64748b' }}>Correlação: Tonelagem vs Horário de Saída</h4>
+                        <div style={{ display: 'flex', alignItems: 'center', marginBottom: '10px' }}>
+                            <h4 style={{ margin: 0, fontSize: '14px', color: '#64748b' }}>Correlação: Tonelagem vs Horário de Saída</h4>
+                            <ChartInfoTip
+                                title="Diagrama de Dispersão: Volume vs Capacidade"
+                                text={
+                                    <span>
+                                        Cada ponto é um dia. O encerramento depende do equilíbrio entre <b>Volume</b> (Tonelagem) e <b>Capacidade</b> (Equipe).
+                                        <br /><br />
+                                        A capacidade vem de 3 pilares:
+                                        <br />• <b>Seleção</b>: Ritmo inicial.
+                                        <br />• <b>Expedição</b>: Conferência/Montagem.
+                                        <br />• <b>Câmara Fria</b>: Sustentação do fluxo.
+                                        <br /><br />
+                                        <b>Pontos subindo:</b> Volume alto encontrando capacidade limitada/desigual.<br />
+                                        <b>Pontos dispersos:</b> Gargalos internos (filas, reprocesso) independente do volume.
+                                    </span>
+                                }
+                            />
+                        </div>
                         <div style={{ width: '100%', height: 300, minHeight: 300 }}>
                             <ResponsiveContainer width="100%" height="100%">
                                 <ScatterChart margin={{ top: 20, right: 20, bottom: 20, left: 20 }}>
                                     <CartesianGrid strokeDasharray="3 3" />
-                                    <XAxis type="number" dataKey="x" name="Tonelagem" unit="k" domain={['dataMin - 5', 'dataMax + 5']} label={{ value: 'Tonelagem (k)', position: 'insideBottomRight', offset: -10 }} />
+                                    <XAxis type="number" dataKey="x" name="Tonelagem" unit="k" domain={[10, 'dataMax + 2']} label={{ value: 'Tonelagem (k)', position: 'insideBottomRight', offset: -10 }} />
                                     <YAxis type="number" dataKey="y" name="Horário" unit="h" domain={[6, 20]} label={{ value: 'Hr Saída', angle: -90, position: 'insideLeft' }} />
                                     <Tooltip cursor={{ strokeDasharray: '3 3' }} content={({ active, payload }) => {
                                         if (active && payload && payload.length) {
                                             const data = payload[0].payload;
+                                            const formattedDate = data.raw?.date ? new Date(data.raw.date).toLocaleDateString() : 'N/A';
+                                            const horaSaida = data.raw?.hora_saida || 'N/A';
+                                            const peso = data.raw?.tonelagem ? Number(data.raw.tonelagem).toLocaleString() : '0';
+                                            const staff = data.raw?.staff_effective || data.raw?.staff_real || {};
+
                                             return (
-                                                <div style={{ background: 'white', border: '1px solid #ccc', padding: '10px', borderRadius: '8px' }}>
-                                                    <p style={{ margin: 0, fontWeight: 'bold' }}>{new Date(data.data).toLocaleDateString()}</p>
-                                                    <p style={{ margin: 0 }}>Saindo às: {data.horaSaida}</p>
-                                                    <p style={{ margin: 0 }}>Peso: {Number(data.tonelagem).toLocaleString()} kg</p>
-                                                    {data.chegadaTardia && <p style={{ margin: 0, color: 'red', fontSize: '12px' }}>⚠️ Chegada Tardia</p>}
+                                                <div style={{ background: 'white', border: '1px solid #e2e8f0', padding: '12px', borderRadius: '8px', boxShadow: '0 4px 6px -1px rgba(0,0,0,0.1)' }}>
+                                                    <p style={{ margin: '0 0 5px 0', fontWeight: 'bold', borderBottom: '1px solid #e2e8f0', paddingBottom: '5px' }}>{formattedDate}</p>
+                                                    <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: 'x' }}>
+                                                        <p style={{ margin: 0, fontSize: '12px' }}>⏱️ Saída: <b>{horaSaida}</b></p>
+                                                        <p style={{ margin: 0, fontSize: '12px' }}>⚖️ Peso: <b>{peso} kg</b></p>
+                                                    </div>
+
+                                                    <div style={{ marginTop: '8px', paddingTop: '8px', borderTop: '1px solid #f1f5f9' }}>
+                                                        <p style={{ margin: '0 0 4px 0', fontSize: '11px', fontWeight: 700, color: '#64748b', textTransform: 'uppercase' }}>Equipe (Trabalhando / Real)</p>
+                                                        <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: '5px', fontSize: '11px' }}>
+                                                            <span>📦 Exped: {staff.expedicao || '-'}</span>
+                                                            <span>❄️ Cam: {staff.camara_fria || '-'}</span>
+                                                            <span>🔍 Sel: {staff.selecao || '-'}</span>
+                                                        </div>
+                                                    </div>
+
+                                                    {data.raw?.chegada_tardia && <p style={{ margin: '8px 0 0 0', color: '#ef4444', fontSize: '11px', fontWeight: 'bold' }}>⚠️ Chegada Tardia</p>}
                                                 </div>
                                             );
                                         }
@@ -380,31 +534,83 @@ export function AnalyticsDashboard() {
                             </ResponsiveContainer>
                         </div>
                     </div>
-                    <div style={{ flex: 1, minWidth: '300px', background: '#f8fafc', padding: '20px', borderRadius: '12px' }}>
-                        <h4 style={{ marginTop: 0, fontSize: '14px', color: '#475569' }}>Insights IA (Machine Learning)</h4>
-                        {!analysisResult ? (
-                            <p style={{ fontSize: '13px', color: '#94a3b8' }}>Coletando dados do Espelho Operacional... (Mínimo 3 registros necessários)</p>
-                        ) : (
-                            <ul style={{ fontSize: '13px', color: '#334155', paddingLeft: '20px', display: 'flex', flexDirection: 'column', gap: '8px' }}>
-                                {analysisResult.insights.map((insight, idx) => (
-                                    <li key={idx}><b>{insight}</b></li>
-                                ))}
-                                {analysisResult.clusterInsights && (
-                                    <li style={{ color: '#7c3aed', fontWeight: 'bold' }}>🤖 {analysisResult.clusterInsights}</li>
-                                )}
-                                <li style={{ marginTop: '10px', fontStyle: 'italic', color: '#64748b' }}>
-                                    Força da Correlação (R²): {(analysisResult.correlation ** 2).toFixed(2)}
-                                </li>
-                            </ul>
-                        )}
-                        <div style={{ marginTop: '20px', fontSize: '12px', color: '#64748b' }}>
-                            A IA recalcula esses modelos a cada novo espelho encerrado.
+
+                    {/* COLUNA DIREITA: INSIGHTS + RANKING */}
+                    <div style={{ flex: 1, minWidth: '300px', display: 'flex', flexDirection: 'column', gap: '20px' }}>
+
+                        {/* CARD IA */}
+                        <div style={{ background: '#f8fafc', padding: '20px', borderRadius: '12px', border: '1px solid #e2e8f0' }}>
+                            <div style={{ display: 'flex', alignItems: 'center', marginBottom: '10px' }}>
+                                <h4 style={{ margin: 0, fontSize: '14px', color: '#475569' }}>Insights IA (Machine Learning)</h4>
+                                <ChartInfoTip title="Inteligência Preditiva" text="A IA analisa os padrões históricos (peso, equipe, horários) para aprender o que causa atrasos. Se ela diz 'Crítico', ela encontrou um padrão (ex: peso alto + saída tarde) que se repete e alerta para você agir antes que vire rotina." />
+                            </div>
+                            {!analysisResult ? (
+                                <p style={{ fontSize: '13px', color: '#94a3b8' }}>Coletando dados do Espelho Operacional... (Mínimo 3 registros necessários)</p>
+                            ) : (
+                                <ul style={{ fontSize: '13px', color: '#334155', paddingLeft: '20px', display: 'flex', flexDirection: 'column', gap: '8px' }}>
+                                    {analysisResult.insights.map((insight, idx) => (
+                                        <li key={idx}><b>{insight}</b></li>
+                                    ))}
+                                    {analysisResult.clusterInsights && (
+                                        <li style={{ color: '#7c3aed', fontWeight: 'bold' }}>🤖 {analysisResult.clusterInsights}</li>
+                                    )}
+                                    <li style={{ marginTop: '10px', fontStyle: 'italic', color: '#64748b' }}>
+                                        Força da Correlação (R²): {analysisResult.correlation ? (analysisResult.correlation ** 2).toFixed(2) : '0.00'}
+                                    </li>
+                                </ul>
+                            )}
                         </div>
+
+                        {/* RANKING CARDS */}
+                        <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: '15px' }}>
+                            {/* MELHORES DIAS */}
+                            <div style={{ background: '#f0fdf4', padding: '15px', borderRadius: '12px', border: '1px solid #bbf7d0' }}>
+                                <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: '10px' }}>
+                                    <h4 style={{ margin: 0, fontSize: '13px', color: '#15803d', display: 'flex', alignItems: 'center', gap: '5px' }}>
+                                        🏆 Alta Eficiência
+                                    </h4>
+                                    <ChartInfoTip title="Índice de Eficiência (IE)" text="Cálculo: Tonelagem / (Equipe x Hora Saída). Recompensa alto volume com time enxuto e saída cedo." />
+                                </div>
+                                <ul style={{ padding: 0, margin: 0, listStyle: 'none' }}>
+                                    {bestDays.map((d, i) => (
+                                        <li key={i} style={{ display: 'flex', justifyContent: 'space-between', fontSize: '11px', padding: '4px 0', borderBottom: '1px solid #dcfce7' }}>
+                                            <span>{new Date(d.raw.date).toLocaleDateString(undefined, { day: '2-digit', month: '2-digit' })}</span>
+                                            <div style={{ textAlign: 'right' }}>
+                                                <span style={{ fontWeight: 'bold' }}>{d.raw.hora_saida}</span>
+                                                <span style={{ display: 'block', fontSize: '9px', color: '#166534' }}>IE: {d.efficiencyScore.toFixed(1)}</span>
+                                            </div>
+                                        </li>
+                                    ))}
+                                </ul>
+                            </div>
+
+                            {/* PIORES DIAS */}
+                            <div style={{ background: '#fef2f2', padding: '15px', borderRadius: '12px', border: '1px solid #fecaca' }}>
+                                <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: '10px' }}>
+                                    <h4 style={{ margin: 0, fontSize: '13px', color: '#b91c1c', display: 'flex', alignItems: 'center', gap: '5px' }}>
+                                        🚨 Baixa Eficiência
+                                    </h4>
+                                    <ChartInfoTip title="Baixo Índice" text="Dias onde o volume entregue foi baixo proporcionalmente ao tamanho da equipe e horas trabalhadas." />
+                                </div>
+                                <ul style={{ padding: 0, margin: 0, listStyle: 'none' }}>
+                                    {worstDays.map((d, i) => (
+                                        <li key={i} style={{ display: 'flex', justifyContent: 'space-between', fontSize: '11px', padding: '4px 0', borderBottom: '1px solid #fee2e2' }}>
+                                            <span>{new Date(d.raw.date).toLocaleDateString(undefined, { day: '2-digit', month: '2-digit' })}</span>
+                                            <div style={{ textAlign: 'right' }}>
+                                                <span style={{ fontWeight: 'bold' }}>{d.raw.hora_saida}</span>
+                                                <span style={{ display: 'block', fontSize: '9px', color: '#991b1b' }}>IE: {d.efficiencyScore.toFixed(1)}</span>
+                                            </div>
+                                        </li>
+                                    ))}
+                                </ul>
+                            </div>
+                        </div>
+
                     </div>
                 </div>
             </div>
 
-            {/* KPI GRID */}
+            {/* 2. KPI GRID (ABAIXO DA IA) */}
             <div className="gamification-grid">
                 <div className="medal-card">
                     <span className="medal-icon"><IconWarning /></span>
@@ -423,11 +629,76 @@ export function AnalyticsDashboard() {
                 </div>
             </div >
 
-            {/* GRÁFICOS */}
-            <div className="charts-grid">
-                <div className="chart-card">
+            {/* 3. GRID 2 COLUNAS: PADRÕES + SEARCH */}
+            < div className="grid-2" >
+                {/* A. DETECTOR DE PADRÕES */}
+                < div className="patterns-section" >
+                    <div className="patterns-header">
+                        <IconAnalyze />
+                        <div>
+                            <h2 style={{ fontSize: '18px', fontWeight: 700, margin: 0 }}>Detector de Padrões Recorrentes</h2>
+                            <span style={{ fontSize: '13px', opacity: 0.85 }}>Inteligência artificial analisou {logs.length} registros em busca de problemas crônicos.</span>
+                        </div>
+                    </div>
+
+                    <div className="patterns-grid">
+                        {padroesCronicos.length === 0 ? (
+                            <div style={{ fontStyle: 'italic', opacity: 0.7 }}>Nenhum padrão crônico detectado. Operação saudável.</div>
+                        ) : (
+                            padroesCronicos.slice(0, 6).map((padrao, idx) => (
+                                <div className="pattern-card" key={idx} onClick={() => setModalPadrao(padrao)}>
+                                    <span className="pattern-cat">{padrao.categoria}</span>
+                                    <div className="pattern-term">
+                                        "{padrao.termo}"
+                                        <span className="pattern-count">{padrao.count}x</span>
+                                    </div>
+                                    <div style={{ fontSize: '11px', marginTop: '8px', opacity: 0.8 }}>Clique para ver detalhes</div>
+                                </div>
+                            ))
+                        )}
+                    </div>
+                </div >
+
+                {/* B. BUSCA (AGORA AQUI) */}
+                < div className="search-section" >
+                    <div className="chart-header" style={{ marginBottom: '15px' }}>
+                        <span>Pesquisa na Base de Conhecimento</span>
+                    </div>
+                    <div className="search-box">
+                        <span className="search-icon-pos"><IconSearch /></span>
+                        <input
+                            type="text"
+                            className="search-input"
+                            placeholder="Busque por termos (ex: esteira, falta de luz, atraso)..."
+                            value={searchTerm}
+                            onChange={e => setSearchTerm(e.target.value)}
+                        />
+                    </div>
+                    <div className="results-list">
+                        {resultados.map(log => (
+                            <div key={log.id} className="result-item" style={{ borderLeftColor: (log.tipo || "").includes('Erro') ? '#ef4444' : '#10b981' }}>
+                                <div className="result-meta">
+                                    <span>{log.data} - {log.hora}</span>
+                                    <span>{log.categoria}</span>
+                                </div>
+                                <div className="result-text">{log.textoOriginal}</div>
+                            </div>
+                        ))}
+                        {searchTerm && resultados.length === 0 && <div style={{ color: '#64748b', textAlign: 'center', padding: '20px' }}>Nenhum resultado encontrado.</div>}
+                    </div>
+                </div >
+            </div >
+
+            {/* 4. GRID 2 COLUNAS: NOVOS GRÁFICOS (OPERACIONAIS) */}
+            < div className="grid-2" >
+
+                {/* ESQUERDA: PARETO */}
+                < div className="chart-card" >
                     <div className="chart-header">
-                        <span>TOP 5 OFENSORES (PARETO)</span>
+                        <div style={{ display: 'flex', alignItems: 'center' }}>
+                            <span>TOP 5 OFENSORES (PARETO)</span>
+                            <ChartInfoTip title="Gráfico de Pareto (80/20)" text="Este gráfico mostra quais problemas causam a maior dor de cabeça. Geralmente, 20% das causas geram 80% dos problemas. Ataque o que está no topo e você resolverá a maior parte do caos dia." />
+                        </div>
                     </div>
                     <div style={{ width: '100%', height: 300, minHeight: 300 }}>
                         <ResponsiveContainer width="100%" height="100%">
@@ -444,71 +715,48 @@ export function AnalyticsDashboard() {
                             </BarChart>
                         </ResponsiveContainer>
                     </div>
-                </div>
+                </div >
 
-                <div className="chart-card">
+                {/* DIREITA: PRODUTIVIDADE (KG/PESSOA) */}
+                < div className="chart-card" >
                     <div className="chart-header">
-                        <span>Tendência (7 Dias)</span>
+                        <div style={{ display: 'flex', alignItems: 'center' }}>
+                            <span>PRODUTIVIDADE REAL (KG/COLABORADOR)</span>
+                            <ChartInfoTip title="Eficiência da Equipe" text="Imagina que a equipe é um motor. Este gráfico mostra 'quantos quilos cada pessoa carregou' em média. Se a barra sobe, a equipe foi mais eficiente. Se desce muito, ou tivemos pouca carga, ou gente demais para pouco serviço." />
+                        </div>
                     </div>
                     <div style={{ width: '100%', height: 300, minHeight: 300 }}>
                         <ResponsiveContainer width="100%" height="100%">
-                            <LineChart data={dadosTendencia}>
-                                <CartesianGrid strokeDasharray="3 3" />
-                                <XAxis dataKey="date" fontSize={12} />
-                                <YAxis allowDecimals={false} />
-                                <Tooltip />
-                                <Line type="monotone" dataKey="count" stroke="#10b981" strokeWidth={3} dot={{ r: 4 }} activeDot={{ r: 8 }} />
-                            </LineChart>
+                            <BarChart data={prodSeries}>
+                                <CartesianGrid strokeDasharray="3 3" vertical={false} />
+                                <XAxis dataKey="date" style={{ fontSize: 11 }} />
+                                <YAxis style={{ fontSize: 11 }} />
+                                <Tooltip
+                                    cursor={{ fill: '#f1f5f9' }}
+                                    content={({ active, payload, label }) => {
+                                        if (active && payload && payload.length) {
+                                            const data = payload[0].payload;
+                                            return (
+                                                <div style={{ background: 'white', border: '1px solid #e2e8f0', padding: '10px', borderRadius: '8px', boxShadow: '0 4px 6px -1px rgba(0,0,0,0.1)' }}>
+                                                    <p style={{ margin: 0, fontWeight: 'bold', color: '#1e293b' }}>{label}</p>
+                                                    <p style={{ margin: '5px 0 0 0', color: '#10b981', fontWeight: 600 }}>⚡ {data.prod} kg/pessoa</p>
+                                                    <p style={{ margin: 0, fontSize: '11px', color: '#64748b' }}>Total: {data.ton}kg / {data.staff} pessoas</p>
+                                                </div>
+                                            );
+                                        }
+                                        return null;
+                                    }}
+                                />
+                                <Bar dataKey="prod" fill="#10b981" radius={[4, 4, 0, 0]}>
+                                    {prodSeries.map((entry, index) => (
+                                        <Cell key={`cell-prod-${index}`} fill={entry.prod > 4000 ? '#10b981' : entry.prod > 2500 ? '#f59e0b' : '#ef4444'} />
+                                    ))}
+                                </Bar>
+                            </BarChart>
                         </ResponsiveContainer>
                     </div>
-                </div>
-            </div>
-
-            <div className="chart-card" style={{ marginBottom: '30px' }}>
-                <div className="chart-header">
-                    <span>VOLUME DIÁRIO</span>
-                </div>
-                <div style={{ width: '100%', height: 300, minHeight: 300 }}>
-                    <ResponsiveContainer width="100%" height="100%">
-                        <LineChart data={dadosTendencia}>
-                            <CartesianGrid strokeDasharray="3 3" vertical={false} />
-                            <XAxis dataKey="date" style={{ fontSize: 11 }} />
-                            <YAxis style={{ fontSize: 11 }} />
-                            <Tooltip />
-                            <Line type="monotone" dataKey="count" stroke="#6366f1" strokeWidth={3} dot={{ r: 4, fill: '#6366f1' }} activeDot={{ r: 6 }} />
-                        </LineChart>
-                    </ResponsiveContainer>
-                </div>
-            </div>
-
-            {/* BUSCA */}
-            <div className="search-section">
-                <div className="chart-header" style={{ marginBottom: '15px' }}>
-                    <span>Pesquisa na Base de Conhecimento</span>
-                </div>
-                <div className="search-box">
-                    <span className="search-icon-pos"><IconSearch /></span>
-                    <input
-                        type="text"
-                        className="search-input"
-                        placeholder="Busque por termos (ex: esteira, falta de luz, atraso)..."
-                        value={searchTerm}
-                        onChange={e => setSearchTerm(e.target.value)}
-                    />
-                </div>
-                <div className="results-list">
-                    {resultados.map(log => (
-                        <div key={log.id} className="result-item" style={{ borderLeftColor: (log.tipo || "").includes('Erro') ? '#ef4444' : '#10b981' }}>
-                            <div className="result-meta">
-                                <span>{log.data} - {log.hora}</span>
-                                <span>{log.categoria}</span>
-                            </div>
-                            <div className="result-text">{log.textoOriginal}</div>
-                        </div>
-                    ))}
-                    {searchTerm && resultados.length === 0 && <div style={{ color: '#64748b', textAlign: 'center', padding: '20px' }}>Nenhum resultado encontrado.</div>}
-                </div>
-            </div>
+                </div >
+            </div >
 
             {/* MODAL PADRÃO */}
             {

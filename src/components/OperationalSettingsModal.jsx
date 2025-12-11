@@ -28,7 +28,8 @@ export function OperationalSettingsModal({ onClose, onSave }) {
 
     const defaultTargets = {
         recebimento: 0, expedicao: 0, camara_fria: 0, selecao: 0, blocado: 0, embandejamento: 0, contagem: 0,
-        meta_saida: '00:00', meta_chegada: '00:00'
+        meta_saida: '00:00', meta_chegada: '00:00',
+        totalHeadcount: 0 // [NEW] Total de colaboradores disponíveis no turno
     };
 
     useEffect(() => {
@@ -38,7 +39,6 @@ export function OperationalSettingsModal({ onClose, onSave }) {
                 const docSnap = await getDoc(docRef);
                 if (docSnap.exists()) {
                     const data = docSnap.data();
-                    // Se já estiver no formato novo (com chaves de turno), usa. Senão, migra o flat para 'manha'.
                     if (data.manha || data.tarde || data.noite) {
                         setAllTargets({
                             manha: { ...defaultTargets, ...data.manha },
@@ -46,7 +46,6 @@ export function OperationalSettingsModal({ onClose, onSave }) {
                             noite: { ...defaultTargets, ...data.noite }
                         });
                     } else {
-                        // Migração de legado (flat) para manhã
                         setAllTargets({
                             manha: { ...defaultTargets, ...data },
                             tarde: { ...defaultTargets },
@@ -92,6 +91,12 @@ export function OperationalSettingsModal({ onClose, onSave }) {
 
     const targets = allTargets[currentShift] || defaultTargets;
 
+    // [NEW] CÁLCULO DE DISTRIBUIÇÃO
+    const totalHeadcount = targets.totalHeadcount || 0;
+    const totalDistributed = SECTORS.reduce((acc, sec) => acc + (parseInt(targets[sec.key]) || 0), 0);
+    const diff = totalHeadcount - totalDistributed;
+    const isBalanced = diff === 0;
+
     if (loading) return <div className="p-4 text-center">Carregando configurações...</div>;
 
     return (
@@ -130,6 +135,37 @@ export function OperationalSettingsModal({ onClose, onSave }) {
                 </div>
 
                 <div style={{ display: 'grid', gap: '20px' }}>
+
+                    {/* [NEW] PAINEL DE CONTROLE DE HEADCOUNT */}
+                    <div style={{ background: '#f8fafc', padding: '15px', borderRadius: '12px', border: '1px solid #e2e8f0' }}>
+                        <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: '10px' }}>
+                            <label style={{ fontSize: '14px', fontWeight: 700, color: '#334155' }}>Total Colaboradores (HC)</label>
+                            <input
+                                type="number"
+                                value={totalHeadcount}
+                                onChange={(e) => handleChange('totalHeadcount', parseInt(e.target.value) || 0)}
+                                style={{ width: '80px', padding: '6px', textAlign: 'center', borderRadius: '6px', border: '1px solid #cbd5e1', fontWeight: 700 }}
+                            />
+                        </div>
+
+                        {/* BARRA DE PROGRESSO DE DISTRIBUIÇÃO */}
+                        <div style={{ marginBottom: '5px' }}>
+                            <div style={{ display: 'flex', justifyContent: 'space-between', fontSize: '12px', marginBottom: '4px', fontWeight: 600 }}>
+                                <span>Distribuído: {totalDistributed}</span>
+                                <span style={{ color: isBalanced ? '#16a34a' : diff > 0 ? '#ea580c' : '#dc2626' }}>
+                                    {isBalanced ? '✅ Balanceado' : diff > 0 ? `⚠️ Faltam alocar ${diff}` : `🚨 Excesso de ${Math.abs(diff)}`}
+                                </span>
+                            </div>
+                            <div style={{ width: '100%', height: '8px', background: '#e2e8f0', borderRadius: '4px', overflow: 'hidden' }}>
+                                <div style={{
+                                    width: `${Math.min((totalDistributed / (totalHeadcount || 1)) * 100, 100)}%`,
+                                    height: '100%',
+                                    background: isBalanced ? '#16a34a' : diff > 0 ? '#fbbf24' : '#ef4444',
+                                    transition: 'width 0.3s ease'
+                                }} />
+                            </div>
+                        </div>
+                    </div>
 
                     {/* SEÇÃO STAFF */}
                     <div>
