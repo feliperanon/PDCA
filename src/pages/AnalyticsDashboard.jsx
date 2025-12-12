@@ -205,17 +205,16 @@ export function AnalyticsDashboard() {
 
     // --- FIRESTORE DAILY OPERATIONS (REAL DATA) ---
     const [dailyOps, setDailyOps] = useState([]);
+
     useEffect(() => {
-        const fetchOps = async () => {
-            try {
-                // Busca últimos 30 dias para análise
-                const q = query(collection(db, "daily_operations"), orderBy("date", "asc"));
-                const querySnapshot = await getDocs(q);
-                const data = querySnapshot.docs.map(doc => ({ id: doc.id, ...doc.data() }));
-                setDailyOps(data);
-            } catch (e) { console.error("Erro daily_operations:", e); }
-        };
-        fetchOps();
+        const q = query(collection(db, "daily_operations"), orderBy("date", "asc"));
+        const unsubscribe = onSnapshot(q, (querySnapshot) => {
+            const data = querySnapshot.docs.map(doc => ({ id: doc.id, ...doc.data() }));
+            setDailyOps(data);
+        }, (error) => {
+            console.error("Erro daily_operations:", error);
+        });
+        return () => unsubscribe();
     }, []);
 
     // --- COMPONENT: INFO TIP ---
@@ -266,14 +265,18 @@ export function AnalyticsDashboard() {
             // Produtividade (kg/pessoa)
             const prod = totalStaff > 0 ? Math.round(ton / totalStaff) : 0;
 
+            // Fix timezone issue by manually formatting YYYY-MM-DD string
+            const [y, m, d] = op.date.split('-');
+            const formattedDate = `${d}/${m}`;
+
             return {
-                date: new Date(op.date).toLocaleDateString(undefined, { day: '2-digit', month: '2-digit' }),
+                date: formattedDate,
                 prod,
                 ton,
                 staff: totalStaff,
                 fullDate: op.date
             };
-        }).sort((a, b) => new Date(a.fullDate) - new Date(b.fullDate)).slice(-7); // Last 7 ops
+        }).sort((a, b) => new Date(a.fullDate + 'T12:00:00') - new Date(b.fullDate + 'T12:00:00')).slice(-7); // Last 7 ops
 
         // Preparar dados: X = Tonelagem, Y = Hr Saída (Decimal)
         const validPoints = filteredOps.map(op => {
@@ -292,7 +295,7 @@ export function AnalyticsDashboard() {
             return { x: xTon, y: yTime, raw: op, efficiencyScore, totalStaff };
         }).filter(Boolean);
 
-        if (validPoints.length < 3) return { slope: 0, correlation: 0, insights: [], points: [], productivitySeries, bestDays: [], worstDays: [] };
+        if (validPoints.length < 3) return { slope: 0, correlation: 0, insights: [], points: [], productivitySeries, bestDays: [], worstDays: [], dataPointCount: validPoints.length };
 
         // 1. Regressão Linear (Método dos Mínimos Quadrados)
         const n = validPoints.length;
@@ -373,7 +376,7 @@ export function AnalyticsDashboard() {
         const bestDays = sortedByScore.slice(0, 5);
         const worstDays = sortedByScore.slice(-5).reverse(); // Piores Scores (Menor eficiencia)
 
-        return { slope, intercept, correlation, insights, points: dataWithClusters, clusterInsights, productivitySeries, bestDays, worstDays };
+        return { slope, intercept, correlation, insights, points: dataWithClusters, clusterInsights, productivitySeries, bestDays, worstDays, dataPointCount: validPoints.length };
 
     }, [dailyOps, dateRange, selectedShift]); // [FIX] Added filter dependencies
 
@@ -494,7 +497,9 @@ export function AnalyticsDashboard() {
                                     <Tooltip cursor={{ strokeDasharray: '3 3' }} content={({ active, payload }) => {
                                         if (active && payload && payload.length) {
                                             const data = payload[0].payload;
-                                            const formattedDate = data.raw?.date ? new Date(data.raw.date).toLocaleDateString() : 'N/A';
+                                            // Fix timezone display in Tooltip
+                                            const [y, m, d] = data.raw?.date ? data.raw.date.split('-') : ['', '', ''];
+                                            const formattedDate = data.raw?.date ? `${d}/${m}/${y}` : 'N/A';
                                             const horaSaida = data.raw?.hora_saida || 'N/A';
                                             const peso = data.raw?.tonelagem ? Number(data.raw.tonelagem).toLocaleString() : '0';
                                             const staff = data.raw?.staff_effective || data.raw?.staff_real || {};
@@ -555,7 +560,11 @@ export function AnalyticsDashboard() {
                                         <li style={{ color: '#7c3aed', fontWeight: 'bold' }}>🤖 {analysisResult.clusterInsights}</li>
                                     )}
                                     <li style={{ marginTop: '10px', fontStyle: 'italic', color: '#64748b' }}>
-                                        Força da Correlação (R²): {analysisResult.correlation ? (analysisResult.correlation ** 2).toFixed(2) : '0.00'}
+                                        Força da Correlação (R²): {
+                                            analysisResult && analysisResult.dataPointCount < 3
+                                                ? <span style={{ color: '#f59e0b' }}>Dados Insuficientes ({analysisResult.dataPointCount}/3)</span>
+                                                : (analysisResult && analysisResult.correlation ? (analysisResult.correlation ** 2).toFixed(2) : '0.00')
+                                        }
                                     </li>
                                 </ul>
                             )}
@@ -572,15 +581,18 @@ export function AnalyticsDashboard() {
                                     <ChartInfoTip title="Índice de Eficiência (IE)" text="Cálculo: Tonelagem / (Equipe x Hora Saída). Recompensa alto volume com time enxuto e saída cedo." />
                                 </div>
                                 <ul style={{ padding: 0, margin: 0, listStyle: 'none' }}>
-                                    {bestDays.map((d, i) => (
-                                        <li key={i} style={{ display: 'flex', justifyContent: 'space-between', fontSize: '11px', padding: '4px 0', borderBottom: '1px solid #dcfce7' }}>
-                                            <span>{new Date(d.raw.date).toLocaleDateString(undefined, { day: '2-digit', month: '2-digit' })}</span>
-                                            <div style={{ textAlign: 'right' }}>
-                                                <span style={{ fontWeight: 'bold' }}>{d.raw.hora_saida}</span>
-                                                <span style={{ display: 'block', fontSize: '9px', color: '#166534' }}>IE: {d.efficiencyScore.toFixed(1)}</span>
-                                            </div>
-                                        </li>
-                                    ))}
+                                    {bestDays.map((d, i) => {
+                                        const [y, m, day] = d.raw.date.split('-');
+                                        return (
+                                            <li key={i} style={{ display: 'flex', justifyContent: 'space-between', fontSize: '11px', padding: '4px 0', borderBottom: '1px solid #dcfce7' }}>
+                                                <span>{day}/{m}</span>
+                                                <div style={{ textAlign: 'right' }}>
+                                                    <span style={{ fontWeight: 'bold' }}>{d.raw.hora_saida}</span>
+                                                    <span style={{ display: 'block', fontSize: '9px', color: '#166534' }}>IE: {d.efficiencyScore.toFixed(1)}</span>
+                                                </div>
+                                            </li>
+                                        );
+                                    })}
                                 </ul>
                             </div>
 
@@ -593,15 +605,18 @@ export function AnalyticsDashboard() {
                                     <ChartInfoTip title="Baixo Índice" text="Dias onde o volume entregue foi baixo proporcionalmente ao tamanho da equipe e horas trabalhadas." />
                                 </div>
                                 <ul style={{ padding: 0, margin: 0, listStyle: 'none' }}>
-                                    {worstDays.map((d, i) => (
-                                        <li key={i} style={{ display: 'flex', justifyContent: 'space-between', fontSize: '11px', padding: '4px 0', borderBottom: '1px solid #fee2e2' }}>
-                                            <span>{new Date(d.raw.date).toLocaleDateString(undefined, { day: '2-digit', month: '2-digit' })}</span>
-                                            <div style={{ textAlign: 'right' }}>
-                                                <span style={{ fontWeight: 'bold' }}>{d.raw.hora_saida}</span>
-                                                <span style={{ display: 'block', fontSize: '9px', color: '#991b1b' }}>IE: {d.efficiencyScore.toFixed(1)}</span>
-                                            </div>
-                                        </li>
-                                    ))}
+                                    {worstDays.map((d, i) => {
+                                        const [y, m, day] = d.raw.date.split('-');
+                                        return (
+                                            <li key={i} style={{ display: 'flex', justifyContent: 'space-between', fontSize: '11px', padding: '4px 0', borderBottom: '1px solid #fee2e2' }}>
+                                                <span>{day}/{m}</span>
+                                                <div style={{ textAlign: 'right' }}>
+                                                    <span style={{ fontWeight: 'bold' }}>{d.raw.hora_saida}</span>
+                                                    <span style={{ display: 'block', fontSize: '9px', color: '#991b1b' }}>IE: {d.efficiencyScore.toFixed(1)}</span>
+                                                </div>
+                                            </li>
+                                        );
+                                    })}
                                 </ul>
                             </div>
                         </div>

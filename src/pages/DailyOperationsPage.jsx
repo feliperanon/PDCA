@@ -213,6 +213,21 @@ export function DailyOperationsPage() {
 
         try {
             // 1. Cria um registro no Histórico (Coleção de PDCAs) para consulta futura
+            // [NEW] Snapshot completo para PDF detalhado
+            const staffEffective = {};
+            SECTORS_CONFIG.forEach(sec => {
+                const meta = targets[sec.key] || 0;
+                const faltas = parseInt(dailyData.staff_real?.[sec.key]) || 0;
+                staffEffective[sec.key] = Math.max(0, meta - faltas);
+            });
+
+            const snapshot = {
+                dailyData,
+                targets,
+                staffEffective,
+                efficiencyScore: 0 // Placeholder/Recalcular se necessário
+            };
+
             const historicoData = {
                 codigo: `TURNO-${new Date().toLocaleDateString('pt-BR').replace(/\//g, '')}-${currentShift.toUpperCase().substring(0, 3)}`,
                 titulo: `Fechamento de Turno - ${currentShift.toUpperCase()}`,
@@ -220,6 +235,7 @@ export function DailyOperationsPage() {
                 status: 'Concluído',
                 criadoEm: new Date().toISOString(),
                 concluidoEm: new Date().toISOString(),
+                snapshot: snapshot, // [NEW] Salva o snapshot
                 plan: {
                     area: 'Operações',
                     priority: 'Rotina',
