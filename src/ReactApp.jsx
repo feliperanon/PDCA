@@ -11,6 +11,7 @@ import { CreatePdcaPage } from "./pages/CreatePdcaPage.jsx";
 import { PdcaDashboardPage } from "./pages/PdcaDashboardPage.jsx";
 import { PdcaDetailPage } from "./pages/PdcaDetailPage.jsx";
 import { PdcaHistoricoPage } from "./pages/PdcaHistoricoPage.jsx";
+import { CadastroPage } from "./pages/CadastroPage.jsx";
 import { LoginPage } from "./pages/LoginPage.jsx";
 import { OperationsLogPage } from "./pages/OperationsLogPage.jsx";
 import { DailyOperationsPage } from "./pages/DailyOperationsPage.jsx";
@@ -94,6 +95,15 @@ export default function ReactApp() {
             element={
               <RequireAuth>
                 <PdcaHistoricoPage />
+              </RequireAuth>
+            }
+          />
+
+          <Route
+            path="/cadastro"
+            element={
+              <RequireAuth>
+                <CadastroPage />
               </RequireAuth>
             }
           />

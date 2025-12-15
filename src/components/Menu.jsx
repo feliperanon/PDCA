@@ -38,6 +38,9 @@ export function Menu() {
         <NavLink to="/historico" className={({ isActive }) => "app-menu-link" + (isActive ? " active" : "")}>
           Histórico
         </NavLink>
+        <NavLink to="/cadastro" className={({ isActive }) => "app-menu-link" + (isActive ? " active" : "")}>
+          Cadastros
+        </NavLink>
 
         <NavLink to="/operacoes" className={({ isActive }) => "app-menu-link" + (isActive ? " active" : "")}>
           Diário Op.

@@ -1,7 +1,7 @@
 // src/pages/PdcaHistoricoPage.jsx
 import { useEffect, useMemo, useState } from "react";
 import { Link } from "react-router-dom";
-import { collection, getDocs, orderBy, query } from "firebase/firestore";
+import { collection, getDocs, orderBy, query, deleteDoc, doc } from "firebase/firestore";
 import { db } from "../firebase.js";
 
 function toDate(str) {
@@ -19,6 +19,10 @@ export function PdcaHistoricoPage() {
   // [NEW] Tabs State
   const [activeTab, setActiveTab] = useState("pdca"); // 'pdca' | 'turnos'
   const [selectedEspelho, setSelectedEspelho] = useState(null); // Modal Data
+
+  // [NEW] Date Filters
+  const [filterStartDate, setFilterStartDate] = useState("");
+  const [filterEndDate, setFilterEndDate] = useState("");
 
   useEffect(() => {
     async function load() {
@@ -76,8 +80,26 @@ export function PdcaHistoricoPage() {
     if (filtroSituacao === "concluidos") list = list.filter(p => p.situacao === 'concluido');
     if (filtroSituacao === "cancelados") list = list.filter(p => p.situacao === 'cancelado');
 
+    // 3. Filter by Date
+    if (filterStartDate) {
+      const start = new Date(filterStartDate);
+      start.setHours(0, 0, 0, 0);
+      list = list.filter(p => {
+        const d = toDate(p.concluidoEm || p.criadoEm);
+        return d && d >= start;
+      });
+    }
+    if (filterEndDate) {
+      const end = new Date(filterEndDate);
+      end.setHours(23, 59, 59, 999);
+      list = list.filter(p => {
+        const d = toDate(p.concluidoEm || p.criadoEm);
+        return d && d <= end;
+      });
+    }
+
     return { filteredList: list };
-  }, [pdcas, filtroSituacao, activeTab]);
+  }, [pdcas, filtroSituacao, activeTab, filterStartDate, filterEndDate]);
 
   function formatDate(p) {
     const raw = p.concluidoEm || p.canceladoEm || p.criadoEm;
@@ -122,6 +144,46 @@ export function PdcaHistoricoPage() {
     setSelectedEspelho(null);
   }
 
+  // ------- BULK DELETE -------
+  async function handleDeleteSelected() {
+    const count = selectedIds.length;
+    if (count === 0) return;
+
+    if (!window.confirm(`Tem certeza que deseja EXCLUIR PERMANENTEMENTE ${count} registros selecionados?`)) {
+      return;
+    }
+
+    try {
+      setLoading(true);
+      await Promise.all(selectedIds.map(id => deleteDoc(doc(db, "pdcas", id))));
+
+      setPdcas(prev => prev.filter(p => !selectedIds.includes(p.id)));
+      setSelectedIds([]);
+      alert("Registros excluídos com sucesso.");
+    } catch (e) {
+      console.error("Erro ao excluir em massa:", e);
+      alert("Erro ao excluir alguns registros.");
+    } finally {
+      setLoading(false);
+    }
+  }
+
+
+
+  // ------- DELETE -------
+  async function handleDelete(id) {
+    if (!window.confirm("Tem certeza que deseja EXCLUIR este registro permanentemente? Esta ação não pode ser desfeita.")) {
+      return;
+    }
+    try {
+      await deleteDoc(doc(db, "pdcas", id));
+      setPdcas(prev => prev.filter(p => p.id !== id));
+      alert("Registro excluído com sucesso.");
+    } catch (e) {
+      console.error("Erro ao excluir:", e);
+      alert("Erro ao excluir registro.");
+    }
+  }
 
   // ------- exportar CSV -------
 
@@ -301,12 +363,23 @@ export function PdcaHistoricoPage() {
 
     const insight = getSmartInsights(p.id, pdcas); // Compute ranking
 
-    // Calculate Kg/Pessoa
+    // [CORRECTION] User specified: "Presente deve ser Meta - Falta".
+    // Therefore, values in 'staffReal' are explicitly 'Faltas'.
     let totalRealStaff = 0;
-    Object.keys(staffReal).forEach(k => {
-      if (k !== 'totalHeadcount') totalRealStaff += (parseInt(staffReal[k]) || 0);
+
+    // We iterate over TARGETS because we need the Meta to calculate Presence.
+    Object.keys(targets).forEach(k => {
+      // Filter out non-staff keys
+      if (k !== 'meta_chegada' && k !== 'meta_saida' && k !== 'totalHeadcount') {
+        const meta = parseInt(targets[k]) || 0;
+        const faltas = parseInt(staffReal[k]) || 0; // The input IS the absence count
+        const presente = Math.max(0, meta - faltas);
+
+        totalRealStaff += presente;
+      }
     });
-    // Fallback if totalRealStaff is 0 to avoid Infinity, though 0 staff with tonnage is odd.
+
+    // Fallback if totalRealStaff is 0 to avoid Infinity
     const tonnageVal = parseFloat(dailyData.tonelagem) || 0;
     const kgPerPerson = totalRealStaff > 0 ? (tonnageVal / totalRealStaff) : 0;
 
@@ -383,16 +456,16 @@ export function PdcaHistoricoPage() {
                     <span class="metric-lbl">Peso / Pessoa</span>
                 </div>
                  <div class="metric-box">
+                    <span class="metric-val" style="color:#0f172a">${totalRealStaff}</span>
+                    <span class="metric-lbl">Colab. Presentes</span>
+                </div>
+                 <div class="metric-box">
                     <span class="metric-val">${dailyData.hora_chegada || '--:--'}</span>
-                    <span class="metric-lbl">Chegada Mercadorias</span>
+                    <span class="metric-lbl">Chegada Mercadoria</span>
                 </div>
                  <div class="metric-box">
                     <span class="metric-val" style="color:${dailyData.chegada_tardia ? '#ef4444' : '#10b981'}">${dailyData.hora_saida || '--:--'}</span>
-                    <span class="metric-lbl">Saída NL</span>
-                </div>
-                 <div class="metric-box">
-                    <span class="metric-val">${dailyData.rating || 0} ★</span>
-                    <span class="metric-lbl">Liderança</span>
+                    <span class="metric-lbl">Saída Caminhão</span>
                 </div>
             </div>
 
@@ -404,20 +477,30 @@ export function PdcaHistoricoPage() {
                             <tr>
                                 <th>Setor</th>
                                 <th>Meta</th>
+                                <th>Presente</th>
                                 <th>Faltas</th>
                                 <th style="text-align:right">Status</th>
                             </tr>
                         </thead>
                         <tbody>
                             ${Object.keys(targets).filter(k => k !== 'meta_chegada' && k !== 'meta_saida' && k !== 'totalHeadcount').map(key => {
-      const meta = targets[key] || 0;
-      const faltas = parseInt(staffReal[key]) || 0;
+      const meta = parseInt(targets[key]) || 0;
+      const faltas = parseInt(staffReal[key]) || 0; // Input is Faltas
+      const presente = Math.max(0, meta - faltas);  // Calc presence
+
+      // Color logic: if falts > 0, danger.
       const color = faltas > 0 ? '#ef4444' : '#10b981';
       const label = faltas > 0 ? `-${faltas}` : 'OK';
+
+      // Verify what logic user wants for table columns:
+      // "presente deveria ser meta-falta" -> Col Presente = calc(presente)
+      // "Faltas" -> Col Faltas = faltas
+
       return `
                                     <tr>
                                         <td style="text-transform:capitalize">${key.replace('_', ' ')}</td>
                                         <td>${meta}</td>
+                                        <td style="font-weight:700">${presente}</td>
                                         <td style="color:${faltas > 0 ? '#ef4444' : '#64748b'}">${faltas}</td>
                                         <td style="text-align:right; color:${color}; font-weight:700">
                                             <span class="status-dot" style="background:${color}"></span>${label}
@@ -438,15 +521,18 @@ export function PdcaHistoricoPage() {
                                 <span style="font-size:10px; color:#64748b; text-transform:uppercase">Ranking</span>
                             </div>
                             <div>
-                                <p style="margin:0; font-weight:600; margin-bottom:4px">
-                                    ${insight.isBest ? '🏆 MELHOR DIA REGISTRADO!' : `Este turno ocupa a ${insight.rank}ª posição.`}
+                                <p style="margin:0; font-weight:600; margin-bottom:4px; font-size:13px">
+                                    ${insight.isBest ? '🏆 Recorde de Performance!' : `Performance rankeada em ${insight.rank}º lugar.`}
                                 </p>
-                                <p style="margin:0; color:#64748b">
-                                    Comparado com ${insight.total} turnos no histórico.
-                                    ${!insight.isBest ? `O recorde atual é de <strong>${formatNumberBr(insight.bestTon)} Kg</strong>.` : 'Parabéns pelo recorde de produtividade!'}
+                                <p style="margin:0; color:#475569; margin-bottom:6px">
+                                    Operação com <strong>${formatNumberBr(kgPerPerson)} Kg/Pessoa</strong>.
+                                    ${!insight.isBest ? `O recorde atual é de ${formatNumberBr(insight.bestTon)} Kg totais.` : 'Excelente trabalho da equipe!'}
+                                </p>
+                                <p style="margin:0; color:#64748b; font-style:italic">
+                                   "A produtividade depende da constância. Analise as faltas para melhorar o próximo turno."
                                 </p>
                             </div>
-                        ` : '<p>Dados insuficientes para ranking.</p>'}
+                        ` : '<p>Dados insuficientes para ranking detalhado.</p>'}
                     </div>
                 </div>
             </div>
@@ -530,8 +616,16 @@ export function PdcaHistoricoPage() {
           </div>
         </div>
 
-        <div className="historico-filtros">
-          <span>Filtrar:</span>
+        <div className="historico-filtros" style={{ display: 'flex', gap: '10px', alignItems: 'center' }}>
+          <div className="filter-group">
+            <span style={{ fontSize: '12px', color: '#64748b' }}>De:</span>
+            <input type="date" value={filterStartDate} onChange={e => setFilterStartDate(e.target.value)} style={{ border: '1px solid #ddd', borderRadius: '4px', padding: '4px' }} />
+          </div>
+          <div className="filter-group">
+            <span style={{ fontSize: '12px', color: '#64748b' }}>Até:</span>
+            <input type="date" value={filterEndDate} onChange={e => setFilterEndDate(e.target.value)} style={{ border: '1px solid #ddd', borderRadius: '4px', padding: '4px' }} />
+          </div>
+          <div className="divider" style={{ width: '1px', height: '20px', background: '#e2e8f0', margin: '0 10px' }}></div>
           <button type="button" onClick={() => setFiltroSituacao("todos")} className={filtroSituacao === "todos" ? "btn-chip btn-chip-active" : "btn-chip"}>Todos</button>
           <button type="button" onClick={() => setFiltroSituacao("concluidos")} className={filtroSituacao === "concluidos" ? "btn-chip btn-chip-active" : "btn-chip"}>Concluídos</button>
           <button type="button" onClick={() => setFiltroSituacao("cancelados")} className={filtroSituacao === "cancelados" ? "btn-chip btn-chip-active" : "btn-chip"}>Cancelados</button>
@@ -543,6 +637,11 @@ export function PdcaHistoricoPage() {
           <span>Selecionados: <strong>{selectedIds.length}</strong></span>
           <button type="button" className="btn-secondary" onClick={selectAllVisible}>Todos</button>
           <button type="button" className="btn-secondary" onClick={clearSelection}>Limpar</button>
+          {selectedIds.length > 0 && (
+            <button type="button" className="btn-secondary" style={{ color: '#ef4444', borderColor: '#fee2e2' }} onClick={handleDeleteSelected}>
+              Excluir Selecionados
+            </button>
+          )}
         </div>
         <div className="historico-export">
           <button type="button" className="btn-secondary" onClick={handleExportCsv}>Exportar CSV</button>
@@ -578,13 +677,26 @@ export function PdcaHistoricoPage() {
                     </td>
                     <td>
                       {activeTab === 'turnos' ? (
-                        <button onClick={() => handleOpenEspelho(p)} className="btn-icon-small" title="Abrir Espelho" style={{ background: 'none', border: '1px solid #e5e7eb', padding: '4px 8px', borderRadius: '6px', cursor: 'pointer', fontSize: '12px' }}>
-                          📄 Abrir
-                        </button>
+                        <>
+                          <button onClick={() => handleOpenEspelho(p)} className="btn-icon-small" title="Abrir Espelho" style={{ background: 'none', border: '1px solid #e5e7eb', padding: '4px 8px', borderRadius: '6px', cursor: 'pointer', fontSize: '12px', marginRight: '4px' }}>
+                            📄 Abrir
+                          </button>
+                          <button onClick={() => handleDelete(p.id)} className="btn-icon-small" title="Excluir" style={{ background: 'none', border: '1px solid #fee2e2', color: '#ef4444', padding: '4px 8px', borderRadius: '6px', cursor: 'pointer', fontSize: '12px' }}>
+                            🗑️
+                          </button>
+                        </>
                       ) : (
-                        <Link to={`/pdca/${p.id}`} className="btn-icon-small" style={{ textDecoration: 'none', border: '1px solid #e5e7eb', padding: '4px 8px', borderRadius: '6px', color: '#111', fontSize: '12px' }}>
-                          📂 Ver
-                        </Link>
+                        <>
+                          <Link to={`/pdca/${p.id}`} className="btn-icon-small" style={{ textDecoration: 'none', border: '1px solid #e5e7eb', padding: '4px 8px', borderRadius: '6px', color: '#111', fontSize: '12px', marginRight: '4px' }}>
+                            📂 Ver
+                          </Link>
+                          <button onClick={() => alert("Função de edição rápida em desenvolvimento.")} className="btn-icon-small" title="Editar" style={{ background: 'none', border: '1px solid #e5e7eb', color: '#3b82f6', padding: '4px 8px', borderRadius: '6px', cursor: 'pointer', fontSize: '12px', marginRight: '4px' }}>
+                            ✏️
+                          </button>
+                          <button onClick={() => handleDelete(p.id)} className="btn-icon-small" title="Excluir" style={{ background: 'none', border: '1px solid #fee2e2', color: '#ef4444', padding: '4px 8px', borderRadius: '6px', cursor: 'pointer', fontSize: '12px' }}>
+                            🗑️
+                          </button>
+                        </>
                       )}
                     </td>
                     <td style={{ fontWeight: '600', color: activeTab === 'turnos' ? '#3b82f6' : '#111' }}>{p.codigo}</td>

@@ -137,7 +137,7 @@ export function AnalyticsDashboard() {
         
         /* GRÁFICOS */
         .charts-grid { display: grid; grid-template-columns: 1.5fr 1fr; gap: 24px; margin-bottom: 30px; }
-        .chart-card { background: var(--surface); border-radius: 16px; padding: 25px; border: 1px solid var(--border); box-shadow: 0 4px 6px -1px rgba(0,0,0,0.05); }
+        .chart-card { background: var(--surface); border-radius: 16px; padding: 25px; border: 1px solid var(--border); box-shadow: 0 4px 6px -1px rgba(0,0,0,0.05); min-width: 0; }
         .chart-header { margin-bottom: 25px; font-weight: 700; color: #334155; font-size: 15px; display: flex; justify-content: space-between; align-items: center; text-transform: uppercase; letter-spacing: 0.5px; }
         
         /* SEARCH */
