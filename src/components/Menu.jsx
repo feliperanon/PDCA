@@ -19,59 +19,78 @@ export function Menu() {
   const initials = displayName.split(" ").map((p) => p[0]).join("").slice(0, 2).toUpperCase();
 
   return (
-    <nav className="app-menu">
-      <div className="app-menu-spacer" />
-
-      <div className="app-menu-links">
-        <NavLink to="/" className={({ isActive }) => "app-menu-link" + (isActive ? " active" : "")} end>
-          Início
-        </NavLink>
-
-        <NavLink to="/pdca/novo" className={({ isActive }) => "app-menu-link" + (isActive ? " active" : "")}>
-          Novo PDCA
-        </NavLink>
-
-        <NavLink to="/dashboard" className={({ isActive }) => "app-menu-link" + (isActive ? " active" : "")}>
-          Dashboard
-        </NavLink>
-
-        <NavLink to="/historico" className={({ isActive }) => "app-menu-link" + (isActive ? " active" : "")}>
-          Histórico
-        </NavLink>
-        <NavLink to="/cadastro" className={({ isActive }) => "app-menu-link" + (isActive ? " active" : "")}>
-          Cadastros
-        </NavLink>
-
-        <NavLink to="/operacoes" className={({ isActive }) => "app-menu-link" + (isActive ? " active" : "")}>
-          Diário Op.
-        </NavLink>
-
-        <NavLink to="/diario" className={({ isActive }) => "app-menu-link" + (isActive ? " active" : "")}>
-          Espelho Op.
-        </NavLink>
-
-        {/* NOVO LINK INTELIGÊNCIA */}
-        <NavLink to="/inteligencia" className={({ isActive }) => "app-menu-link" + (isActive ? " active" : "")}>
-          📊 Inteligência
-        </NavLink>
+    <nav className="app-menu" style={{
+      display: 'flex', alignItems: 'center', justifyContent: 'space-between',
+      padding: '0 20px', background: '#1e293b', borderBottom: '1px solid #334155',
+      height: '60px', boxShadow: '0 4px 6px -1px rgba(0,0,0,0.3)'
+    }}>
+      {/* LEFT: LOGO OR TITLE (Optional, using spacer for now) */}
+      <div style={{ fontWeight: 800, fontSize: '18px', color: '#f8fafc', display: 'flex', items: 'center', gap: '8px' }}>
+        <span style={{ color: '#60a5fa' }}>PDCA</span>Insight
       </div>
 
-      <div className="app-menu-right">
+      <div className="app-menu-links" style={{ display: 'flex', gap: '5px', background: '#0f172a', padding: '5px', borderRadius: '30px', border: '1px solid #334155' }}>
+        {[
+          { to: "/", label: "Início" },
+          { to: "/pdca/novo", label: "Novo PDCA" },
+          { to: "/dashboard", label: "Dashboard" },
+          { to: "/historico", label: "Histórico" },
+          { to: "/cadastro", label: "Cadastros" },
+          { to: "/operacoes", label: "Diário Op." },
+          { to: "/diario", label: "Espelho Op." },
+          { to: "/inteligencia", label: "📊 Inteligência" }
+        ].map(link => (
+          <NavLink
+            key={link.to}
+            to={link.to}
+            className={({ isActive }) => isActive ? "active-link" : "inactive-link"}
+            style={({ isActive }) => ({
+              textDecoration: 'none',
+              padding: '6px 16px',
+              borderRadius: '20px',
+              fontSize: '13px',
+              fontWeight: 600,
+              color: isActive ? '#ffffff' : '#94a3b8',
+              background: isActive ? '#3b82f6' : 'transparent',
+              transition: 'all 0.2s ease'
+            })}
+            end={link.to === "/"}
+          >
+            {link.label}
+          </NavLink>
+        ))}
+      </div>
+
+      {/* RIGHT: USER PROFILE */}
+      <div className="app-menu-right" style={{ display: 'flex', alignItems: 'center', gap: '15px' }}>
         {user ? (
           <>
-            <div className="app-menu-user-wrapper">
-              <div className="app-menu-avatar">{initials}</div>
-              <div className="app-menu-user-text">
-                <span className="app-menu-user-name">{displayName}</span>
-                <span className="app-menu-user-role">Logística • NL</span>
+            <div className="app-menu-user-wrapper" style={{ display: 'flex', alignItems: 'center', gap: '10px' }}>
+              <div style={{
+                width: '32px', height: '32px', borderRadius: '50%', background: '#3b82f6',
+                color: 'white', display: 'flex', alignItems: 'center', justifyContent: 'center',
+                fontWeight: 700, fontSize: '12px'
+              }}>
+                {initials}
+              </div>
+              <div className="app-menu-user-text" style={{ display: 'flex', flexDirection: 'column', lineHeight: 1.2 }}>
+                <span style={{ fontSize: '13px', fontWeight: 700, color: '#f1f5f9' }}>{displayName}</span>
+                <span style={{ fontSize: '11px', color: '#94a3b8' }}>Logística • NL</span>
               </div>
             </div>
-            <button type="button" className="btn-secondary app-menu-logout" onClick={handleLogout}>
+            <button
+              type="button"
+              onClick={handleLogout}
+              style={{
+                background: 'transparent', border: '1px solid #e2e8f0', borderRadius: '8px',
+                padding: '6px 12px', fontSize: '12px', fontWeight: 600, color: '#64748b', cursor: 'pointer'
+              }}
+            >
               Sair
             </button>
           </>
         ) : (
-          <NavLink to="/login" className={({ isActive }) => "app-menu-link" + (isActive ? " active" : "")}>
+          <NavLink to="/login" style={{ textDecoration: 'none', color: '#3b82f6', fontWeight: 700 }}>
             Login
           </NavLink>
         )}

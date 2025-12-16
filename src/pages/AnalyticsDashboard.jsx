@@ -14,6 +14,7 @@ const IconAnalyze = () => <svg width="24" height="24" viewBox="0 0 24 24" fill="
 const IconSearch = () => <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"><circle cx="11" cy="11" r="8" /><line x1="21" y1="21" x2="16.65" y2="16.65" /></svg>;
 const IconX = () => <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"><line x1="18" y1="6" x2="6" y2="18" /><line x1="6" y1="6" x2="18" y2="18" /></svg>;
 const IconFilter = () => <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"><polygon points="22 3 2 3 10 12.46 10 19 14 21 14 12.46 22 3"></polygon></svg>;
+const IconLive = () => <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="#ef4444" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"><circle cx="12" cy="12" r="10"></circle><circle cx="12" cy="12" r="3" fill="#ef4444"></circle></svg>;
 const IconIdea = () => <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="#eab308" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"><path d="M9 18h6" /><path d="M10 22h4" /><path d="M15.09 14c.18-.9.09-1.46-.26-2.03-3-4.9-8.66-1.57-8.83 3.66 0 .58-.42 2.37.58 2.37H15.09z" /><path d="M12 2A7 7 0 0 0 5 9c0 4 3 7 3 7h8s3-3 3-7a7 7 0 0 0-7-7z" /></svg>;
 
 
@@ -246,11 +247,19 @@ export function AnalyticsDashboard() {
     };
 
     // --- CÉREBRO DA IA (REGRESSÃO LINEAR & CORRELAÇÔES) ---
-    const analysisResult = React.useMemo(() => {
+    const { analysisResult, openRoutines } = React.useMemo(() => {
         const filteredOps = dailyOps.filter(op => filterByRangeAndShift(op, 'date', 'shift'));
 
-        // --- NEW: PRODUCTIVITY METRICS ---
-        const productivitySeries = filteredOps.map(op => {
+        // [NEW] Smart Filter: Consider "Closed" for Analytics if it has data, even if status is 'open' (Legacy Support)
+        const isEffectivelyClosed = (op) => {
+            return op.status === 'closed' || (Number(op.tonelagem) > 0 && op.hora_saida);
+        };
+
+        const completedOps = filteredOps.filter(isEffectivelyClosed);
+        const openList = filteredOps.filter(op => !isEffectivelyClosed(op));
+
+        // --- NEW: PRODUCTIVITY METRICS (Only Completed) ---
+        const productivitySeries = completedOps.map(op => {
             // Somar staff total de todos os setores
             // Somar staff total de todos os setores
             let totalStaff = 0;
@@ -279,7 +288,7 @@ export function AnalyticsDashboard() {
         }).sort((a, b) => new Date(a.fullDate + 'T12:00:00') - new Date(b.fullDate + 'T12:00:00')).slice(-7); // Last 7 ops
 
         // Preparar dados: X = Tonelagem, Y = Hr Saída (Decimal)
-        const validPoints = filteredOps.map(op => {
+        const validPoints = completedOps.map(op => {
             if (!op.tonelagem || !op.hora_saida) return null;
             const [h, m] = op.hora_saida.split(':').map(Number);
             const yTime = h + (m / 60);
@@ -295,36 +304,89 @@ export function AnalyticsDashboard() {
             return { x: xTon, y: yTime, raw: op, efficiencyScore, totalStaff };
         }).filter(Boolean);
 
-        if (validPoints.length < 3) return { slope: 0, correlation: 0, insights: [], points: [], productivitySeries, bestDays: [], worstDays: [], dataPointCount: validPoints.length };
-
-        // 1. Regressão Linear (Método dos Mínimos Quadrados)
-        const n = validPoints.length;
-        const sumX = validPoints.reduce((acc, p) => acc + p.x, 0);
-        const sumY = validPoints.reduce((acc, p) => acc + p.y, 0);
-        const sumXY = validPoints.reduce((acc, p) => acc + (p.x * p.y), 0);
-        const sumXX = validPoints.reduce((acc, p) => acc + (p.x * p.x), 0);
-
-        const slope = (n * sumXY - sumX * sumY) / (n * sumXX - sumX * sumX);
-        const intercept = (sumY - slope * sumX) / n;
-
-        // 2. Correlation (r)
-        const meanX = sumX / n;
-        const meanY = sumY / n;
-        const numerator = validPoints.reduce((acc, p) => acc + ((p.x - meanX) * (p.y - meanY)), 0);
-        const denominator = Math.sqrt(
-            validPoints.reduce((acc, p) => acc + Math.pow(p.x - meanX, 2), 0) *
-            validPoints.reduce((acc, p) => acc + Math.pow(p.y - meanY, 2), 0)
+        if (validPoints.length === 0) return { slope: 0, correlation: 0, insights: [], points: [], productivitySeries, bestDays: [], worstDays: [], dataPointCount: 0 };
+        // [MODIFIED] minimalist chart - responsive container
+        const ScatterWrapper = ({ children }) => (
+            <div style={{ width: '100%', height: '350px' }}>
+                <ResponsiveContainer width="100%" height="100%">
+                    {children}
+                </ResponsiveContainer>
+            </div>
         );
-        const correlation = numerator / (denominator || 1);
 
-        // 3. Gerar Insights em Texto Natural
+        // 1. Regressão Linear (Somente se n >= 3 para ser relevante)
+        // Se < 3, retornamos os pontos para visualização, mas sem linha de tendência
+        const n = validPoints.length;
+        let slope = 0, intercept = 0, correlation = 0;
         const insights = [];
-        const delayPer10k = slope * 10;
-        const delayMinutes = Math.round(delayPer10k * 60);
 
-        if (correlation > 0.5) insights.push(`Forte correlação: +10k toneladas geram +${delayMinutes}min de tempo na operação.`);
-        else if (correlation > 0.3) insights.push(`Tendência leve: Cargas mais pesadas aumentam o tempo em ~${delayMinutes}min a cada 10k ton.`);
-        else insights.push("Não há correlação clara entre peso e horário de saída ainda.");
+        if (n >= 3) {
+            const sumX = validPoints.reduce((acc, p) => acc + p.x, 0);
+            const sumY = validPoints.reduce((acc, p) => acc + p.y, 0);
+            const sumXY = validPoints.reduce((acc, p) => acc + (p.x * p.y), 0);
+            const sumXX = validPoints.reduce((acc, p) => acc + (p.x * p.x), 0);
+
+            slope = (n * sumXY - sumX * sumY) / (n * sumXX - sumX * sumX);
+            intercept = (sumY - slope * sumX) / n;
+
+            // 2. Correlation (r)
+            const meanX = sumX / n;
+            const meanY = sumY / n;
+            const numerator = validPoints.reduce((acc, p) => acc + ((p.x - meanX) * (p.y - meanY)), 0);
+            const denominator = Math.sqrt(
+                validPoints.reduce((acc, p) => acc + Math.pow(p.x - meanX, 2), 0) *
+                validPoints.reduce((acc, p) => acc + Math.pow(p.y - meanY, 2), 0)
+            );
+            correlation = numerator / (denominator || 1);
+
+            // 3. Gerar Insights em Texto Natural
+            const delayPer10k = slope * 10;
+            const delayMinutes = Math.round(delayPer10k * 60);
+
+            if (correlation > 0.5) insights.push(`Forte correlação: +10k toneladas geram +${delayMinutes}min de tempo na operação.`);
+            else if (correlation > 0.3) insights.push(`Tendência leve: Cargas mais pesadas aumentam o tempo em ~${delayMinutes}min a cada 10k ton.`);
+            else insights.push("Não há correlação clara entre peso e horário de saída ainda.");
+        } else {
+            insights.push(`Dados insuficientes para correlação (${n}/3 amostras). Mostrando dados brutos.`);
+        }
+
+        // [NEW] ADVANCED AI: Problem & Solution Engine
+        const recommendations = [];
+
+        // Rule 1: High Latency
+        const avgExitTime = validPoints.reduce((acc, p) => acc + p.y, 0) / (n || 1);
+        if (avgExitTime > 13) { // After 13:00
+            recommendations.push({
+                type: 'alert',
+                problem: 'Horário médio de saída tardio (>13h).',
+                solution: 'Antecipar início do turno ou reforçar equipe de separação até as 10h.'
+            });
+        }
+
+        // Rule 2: Low Efficiency vs Weight
+        // If ton > 30k but exit > 12h, check staff
+        const heavyDays = validPoints.filter(p => p.x > 30);
+        if (heavyDays.length > 0) {
+            const badHeavyDays = heavyDays.filter(p => p.y > 12.5);
+            if (badHeavyDays.length > 0) {
+                recommendations.push({
+                    type: 'warning',
+                    problem: `${badHeavyDays.length} dias de alta carga (>30t) terminaram tarde.`,
+                    solution: 'Criar gatilho automático: Acima de 30t, alocar +2 auxiliares na expedição.'
+                });
+            }
+        }
+
+        // Rule 3: Correlation Strength
+        if (n >= 3 && correlation < 0.3) {
+            recommendations.push({
+                type: 'info',
+                problem: 'Processo instável (Baixa correlação Tonelagem x Tempo).',
+                solution: 'Padronizar processo de check-out para reduzir variabilidade.'
+            });
+        }
+
+        return { slope, correlation, insights, recommendations, points: validPoints, productivitySeries, bestDays: [], worstDays: [], dataPointCount: n };
 
         // 4. CLUSTERING (K-MEANS)
         let dataWithClusters = validPoints.map(p => ({ ...p, cluster: 0 }));
@@ -376,7 +438,10 @@ export function AnalyticsDashboard() {
         const bestDays = sortedByScore.slice(0, 5);
         const worstDays = sortedByScore.slice(-5).reverse(); // Piores Scores (Menor eficiencia)
 
-        return { slope, intercept, correlation, insights, points: dataWithClusters, clusterInsights, productivitySeries, bestDays, worstDays, dataPointCount: validPoints.length };
+        return {
+            analysisResult: { slope, intercept, correlation, insights, points: dataWithClusters, clusterInsights, productivitySeries, bestDays, worstDays, dataPointCount: validPoints.length },
+            openRoutines: openList
+        };
 
     }, [dailyOps, dateRange, selectedShift]); // [FIX] Added filter dependencies
 
@@ -384,6 +449,7 @@ export function AnalyticsDashboard() {
     const prodSeries = analysisResult ? analysisResult.productivitySeries : [];
     const bestDays = (analysisResult && analysisResult.bestDays) || [];
     const worstDays = (analysisResult && analysisResult.worstDays) || [];
+    const liveItems = openRoutines || [];
 
     // FILTRAGEM DE LOGS
     const filteredLogs = logs.filter(l => {
@@ -437,15 +503,15 @@ export function AnalyticsDashboard() {
                     <div style={{ display: 'flex', gap: '10px', background: 'white', padding: '10px', borderRadius: '12px', border: '1px solid #e2e8f0', boxShadow: '0 2px 4px rgba(0,0,0,0.05)' }}>
                         <div style={{ display: 'flex', flexDirection: 'column' }}>
                             <label style={{ fontSize: '10px', fontWeight: 'bold', color: '#64748b', marginBottom: '2px' }}>DATA INÍCIO</label>
-                            <input type="date" value={dateRange.start} onChange={e => setDateRange({ ...dateRange, start: e.target.value })} style={{ border: '1px solid #cbd5e1', borderRadius: '6px', padding: '4px 8px', fontSize: '12px' }} />
+                            <input title="Data Início" type="date" value={dateRange.start} onChange={e => setDateRange({ ...dateRange, start: e.target.value })} style={{ border: '1px solid #cbd5e1', borderRadius: '6px', padding: '4px 8px', fontSize: '12px' }} />
                         </div>
                         <div style={{ display: 'flex', flexDirection: 'column' }}>
                             <label style={{ fontSize: '10px', fontWeight: 'bold', color: '#64748b', marginBottom: '2px' }}>DATA FIM</label>
-                            <input type="date" value={dateRange.end} onChange={e => setDateRange({ ...dateRange, end: e.target.value })} style={{ border: '1px solid #cbd5e1', borderRadius: '6px', padding: '4px 8px', fontSize: '12px' }} />
+                            <input title="Data Fim" type="date" value={dateRange.end} onChange={e => setDateRange({ ...dateRange, end: e.target.value })} style={{ border: '1px solid #cbd5e1', borderRadius: '6px', padding: '4px 8px', fontSize: '12px' }} />
                         </div>
                         <div style={{ display: 'flex', flexDirection: 'column' }}>
                             <label style={{ fontSize: '10px', fontWeight: 'bold', color: '#64748b', marginBottom: '2px' }}>TURNO</label>
-                            <select value={selectedShift} onChange={e => setSelectedShift(e.target.value)} style={{ border: '1px solid #cbd5e1', borderRadius: '6px', padding: '4px 8px', fontSize: '12px', background: 'white' }}>
+                            <select title="Selecione o Turno" value={selectedShift} onChange={e => setSelectedShift(e.target.value)} style={{ border: '1px solid #cbd5e1', borderRadius: '6px', padding: '4px 8px', fontSize: '12px', background: 'white' }}>
                                 <option value="all">Todos</option>
                                 <option value="manha">Manhã</option>
                                 <option value="tarde">Tarde</option>
@@ -460,6 +526,46 @@ export function AnalyticsDashboard() {
                     </div>
                 </div>
             </div>
+
+
+
+            {/* LIVE MONITORING SECTION */}
+            {
+                liveItems.length > 0 && (
+                    <div style={{ marginBottom: '30px', background: 'white', padding: '20px', borderRadius: '16px', border: '1px solid #fee2e2', borderLeft: '4px solid #ef4444', animation: 'pulse 2s infinite' }}>
+                        <style>{`@keyframes pulse { 0% { box-shadow: 0 0 0 0 rgba(239, 68, 68, 0.2); } 70% { box-shadow: 0 0 0 10px rgba(239, 68, 68, 0); } 100% { box-shadow: 0 0 0 0 rgba(239, 68, 68, 0); } }`}</style>
+                        <div style={{ display: 'flex', alignItems: 'center', gap: '10px', marginBottom: '15px' }}>
+                            <IconLive />
+                            <h3 style={{ margin: 0, fontSize: '16px', color: '#b91c1c' }}>Operações em Andamento ({liveItems.length})</h3>
+                        </div>
+                        <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fit, minmax(250px, 1fr))', gap: '15px' }}>
+                            {liveItems.map(op => {
+                                // Extract basic stats safely
+                                const ton = op.tonelagem ? Number(op.tonelagem).toLocaleString() : '0';
+                                const [y, m, d] = op.date.split('-');
+
+                                // Calc staff count
+                                const staffRaw = op.staff_effective || op.staff_real || {};
+                                const staffCount = Object.values(staffRaw).reduce((acc, val) => acc + (Number(val) || 0), 0);
+
+                                return (
+                                    <div key={op.id} style={{ background: '#fef2f2', padding: '15px', borderRadius: '12px', border: '1px solid #fecaca' }}>
+                                        <div style={{ display: 'flex', justifyContent: 'space-between', marginBottom: '10px' }}>
+                                            <span style={{ fontWeight: 700, color: '#1e293b' }}>{d}/{m} - {(op.shift || "").toUpperCase()}</span>
+                                            <span style={{ fontSize: '11px', background: '#fff', color: '#b91c1c', padding: '2px 8px', borderRadius: '10px', fontWeight: 700, border: '1px solid #fecaca' }}>EM ABERTO</span>
+                                        </div>
+                                        <div style={{ fontSize: '13px', color: '#475569', display: 'flex', flexDirection: 'column', gap: '4px' }}>
+                                            <span>⚖️ <b>{ton} kg</b> processados</span>
+                                            <span>👥 <b>{staffCount}</b> colaboradores ativos</span>
+                                            {op.hora_chegada && <span>🚛 Chegada: {op.hora_chegada}</span>}
+                                        </div>
+                                    </div>
+                                )
+                            })}
+                        </div>
+                    </div>
+                )
+            }
 
             {/* 1. SUPER INTELIGENCIA (AGORA NO TOPO) */}
             <div className="chart-card" style={{ marginBottom: '30px', borderLeft: '4px solid #7c3aed' }}>
@@ -488,8 +594,20 @@ export function AnalyticsDashboard() {
                                 }
                             />
                         </div>
-                        <div style={{ width: '100%', height: 300, minHeight: 300 }}>
-                            <ResponsiveContainer width="100%" height="100%">
+                        {scatterData.length === 0 ? (
+                            <div style={{ height: '300px', display: 'flex', alignItems: 'center', justifyContent: 'center', color: '#94a3b8', background: '#f8fafc', borderRadius: '8px', flexDirection: 'column', gap: '10px', textAlign: 'center' }}>
+                                <div style={{ fontSize: '24px' }}>❄️</div>
+                                <div style={{ fontWeight: 600 }}>Aguardando Dados Completos</div>
+                                <div style={{ fontSize: '13px', maxWidth: '300px', color: '#64748b' }}>
+                                    Para gerar dispersão inteligente, feche operações com:
+                                    <ul style={{ textAlign: 'left', margin: '10px auto', display: 'inline-block' }}>
+                                        <li>Tonelagem (&gt; 0)</li>
+                                        <li>Horário de Saída (Ex: 17:00)</li>
+                                    </ul>
+                                </div>
+                            </div>
+                        ) : (
+                            <ScatterWrapper>
                                 <ScatterChart margin={{ top: 20, right: 20, bottom: 20, left: 20 }}>
                                     <CartesianGrid strokeDasharray="3 3" />
                                     <XAxis type="number" dataKey="x" name="Tonelagem" unit="k" domain={[10, 'dataMax + 2']} label={{ value: 'Tonelagem (k)', position: 'insideBottomRight', offset: -10 }} />
@@ -536,8 +654,8 @@ export function AnalyticsDashboard() {
                                         ))}
                                     </Scatter>
                                 </ScatterChart>
-                            </ResponsiveContainer>
-                        </div>
+                            </ScatterWrapper>
+                        )}
                     </div>
 
                     {/* COLUNA DIREITA: INSIGHTS + RANKING */}
@@ -553,11 +671,23 @@ export function AnalyticsDashboard() {
                                 <p style={{ fontSize: '13px', color: '#94a3b8' }}>Coletando dados do Espelho Operacional... (Mínimo 3 registros necessários)</p>
                             ) : (
                                 <ul style={{ fontSize: '13px', color: '#334155', paddingLeft: '20px', display: 'flex', flexDirection: 'column', gap: '8px' }}>
+                                    {analysisResult.recommendations && analysisResult.recommendations.length > 0 && (
+                                        <>
+                                            <li style={{ marginTop: '10px', fontWeight: 'bold', color: '#b91c1c', borderTop: '1px solid #cbd5e1', paddingTop: '8px' }}>🚨 Problemas & Soluções Sugeridas:</li>
+                                            {analysisResult.recommendations.map((rec, idx) => (
+                                                <li key={`rec-${idx}`} style={{ display: 'flex', flexDirection: 'column', gap: '2px', padding: '5px', background: '#fff', borderRadius: '6px', border: '1px solid #f1f5f9' }}>
+                                                    <span style={{ fontSize: '12px', color: '#b91c1c' }}>🛑 <b>Problema:</b> {rec.problem}</span>
+                                                    <span style={{ fontSize: '12px', color: '#15803d' }}>💡 <b>Solução:</b> {rec.solution}</span>
+                                                </li>
+                                            ))}
+                                        </>
+                                    )}
+
                                     {analysisResult.insights.map((insight, idx) => (
-                                        <li key={idx}><b>{insight}</b></li>
+                                        <li key={idx} style={{ marginTop: '5px' }}>📌 {insight}</li>
                                     ))}
                                     {analysisResult.clusterInsights && (
-                                        <li style={{ color: '#7c3aed', fontWeight: 'bold' }}>🤖 {analysisResult.clusterInsights}</li>
+                                        <li style={{ color: '#7c3aed', fontWeight: 'bold', marginTop: '5px' }}>🤖 {analysisResult.clusterInsights}</li>
                                     )}
                                     <li style={{ marginTop: '10px', fontStyle: 'italic', color: '#64748b' }}>
                                         Força da Correlação (R²): {
@@ -645,9 +775,9 @@ export function AnalyticsDashboard() {
             </div >
 
             {/* 3. GRID 2 COLUNAS: PADRÕES + SEARCH */}
-            < div className="grid-2" >
+            <div className="grid-2">
                 {/* A. DETECTOR DE PADRÕES */}
-                < div className="patterns-section" >
+                <div className="patterns-section">
                     <div className="patterns-header">
                         <IconAnalyze />
                         <div>
@@ -672,10 +802,10 @@ export function AnalyticsDashboard() {
                             ))
                         )}
                     </div>
-                </div >
+                </div>
 
                 {/* B. BUSCA (AGORA AQUI) */}
-                < div className="search-section" >
+                <div className="search-section">
                     <div className="chart-header" style={{ marginBottom: '15px' }}>
                         <span>Pesquisa na Base de Conhecimento</span>
                     </div>
@@ -701,23 +831,27 @@ export function AnalyticsDashboard() {
                         ))}
                         {searchTerm && resultados.length === 0 && <div style={{ color: '#64748b', textAlign: 'center', padding: '20px' }}>Nenhum resultado encontrado.</div>}
                     </div>
-                </div >
-            </div >
+                </div>
+            </div>
 
             {/* 4. GRID 2 COLUNAS: NOVOS GRÁFICOS (OPERACIONAIS) */}
-            < div className="grid-2" >
+            <div className="grid-2">
 
                 {/* ESQUERDA: PARETO */}
-                < div className="chart-card" >
+                <div className="chart-card">
                     <div className="chart-header">
                         <div style={{ display: 'flex', alignItems: 'center' }}>
                             <span>TOP 5 OFENSORES (PARETO)</span>
                             <ChartInfoTip title="Gráfico de Pareto (80/20)" text="Este gráfico mostra quais problemas causam a maior dor de cabeça. Geralmente, 20% das causas geram 80% dos problemas. Ataque o que está no topo e você resolverá a maior parte do caos dia." />
                         </div>
                     </div>
-                    <div style={{ width: '100%', height: 300, minHeight: 300 }}>
-                        <ResponsiveContainer width="100%" height="100%">
-                            <BarChart data={dadosPareto} layout="vertical" margin={{ left: 10 }}>
+                    {dadosPareto.length === 0 ? (
+                        <div style={{ height: '300px', display: 'flex', alignItems: 'center', justifyContent: 'center', color: '#94a3b8', background: '#f8fafc', borderRadius: '8px' }}>
+                            📉 Sem dados de Pareto (Não houve falhas/erros)
+                        </div>
+                    ) : (
+                        <div style={{ width: '100%', height: '300px', overflowX: 'auto', overflowY: 'hidden' }}>
+                            <BarChart width={500} height={300} data={dadosPareto} layout="vertical" margin={{ left: 10 }}>
                                 <CartesianGrid strokeDasharray="3 3" horizontal={false} />
                                 <XAxis type="number" hide />
                                 <YAxis dataKey="name" type="category" width={100} style={{ fontSize: 11, fontWeight: 600 }} />
@@ -728,71 +862,77 @@ export function AnalyticsDashboard() {
                                     ))}
                                 </Bar>
                             </BarChart>
-                        </ResponsiveContainer>
-                    </div>
-                </div >
+                        </div>
+                    )}
+                </div>
 
                 {/* DIREITA: PRODUTIVIDADE (KG/PESSOA) */}
-                < div className="chart-card" >
+                <div className="chart-card">
                     <div className="chart-header">
                         <div style={{ display: 'flex', alignItems: 'center' }}>
                             <span>PRODUTIVIDADE REAL (KG/COLABORADOR)</span>
                             <ChartInfoTip title="Eficiência da Equipe" text="Imagina que a equipe é um motor. Este gráfico mostra 'quantos quilos cada pessoa carregou' em média. Se a barra sobe, a equipe foi mais eficiente. Se desce muito, ou tivemos pouca carga, ou gente demais para pouco serviço." />
                         </div>
                     </div>
-                    <div style={{ width: '100%', height: 300, minHeight: 300 }}>
-                        <ResponsiveContainer width="100%" height="100%">
-                            <BarChart data={prodSeries}>
-                                <CartesianGrid strokeDasharray="3 3" vertical={false} />
-                                <XAxis dataKey="date" style={{ fontSize: 11 }} />
-                                <YAxis style={{ fontSize: 11 }} />
-                                <Tooltip
-                                    cursor={{ fill: '#f1f5f9' }}
-                                    content={({ active, payload, label }) => {
-                                        if (active && payload && payload.length) {
-                                            const data = payload[0].payload;
-                                            return (
-                                                <div style={{ background: 'white', border: '1px solid #e2e8f0', padding: '10px', borderRadius: '8px', boxShadow: '0 4px 6px -1px rgba(0,0,0,0.1)' }}>
-                                                    <p style={{ margin: 0, fontWeight: 'bold', color: '#1e293b' }}>{label}</p>
-                                                    <p style={{ margin: '5px 0 0 0', color: '#10b981', fontWeight: 600 }}>⚡ {data.prod} kg/pessoa</p>
-                                                    <p style={{ margin: 0, fontSize: '11px', color: '#64748b' }}>Total: {data.ton}kg / {data.staff} pessoas</p>
-                                                </div>
-                                            );
-                                        }
-                                        return null;
-                                    }}
-                                />
-                                <Bar dataKey="prod" fill="#10b981" radius={[4, 4, 0, 0]}>
-                                    {prodSeries.map((entry, index) => (
-                                        <Cell key={`cell-prod-${index}`} fill={entry.prod > 4000 ? '#10b981' : entry.prod > 2500 ? '#f59e0b' : '#ef4444'} />
-                                    ))}
-                                </Bar>
-                            </BarChart>
-                        </ResponsiveContainer>
-                    </div>
-                </div >
-            </div >
+                    {prodSeries.length === 0 ? (
+                        <div style={{ height: '300px', display: 'flex', alignItems: 'center', justifyContent: 'center', color: '#94a3b8', background: '#f8fafc', borderRadius: '8px' }}>
+                            📊 Sem dados de produtividade (Necessário operações fechadas)
+                        </div>
+                    ) : (
+                        <div style={{ width: '100%', height: '300px' }}>
+                            <ResponsiveContainer width="100%" height="100%">
+                                <BarChart data={prodSeries}>
+                                    <CartesianGrid strokeDasharray="3 3" vertical={false} />
+                                    <XAxis dataKey="date" style={{ fontSize: 11 }} />
+                                    <YAxis style={{ fontSize: 11 }} />
 
-            {/* MODAL PADRÃO */}
+                                    <Tooltip
+                                        cursor={{ fill: '#f1f5f9' }}
+                                        content={({ active, payload, label }) => {
+                                            if (active && payload && payload.length) {
+                                                const data = payload[0].payload;
+                                                return (
+                                                    <div style={{ background: 'white', border: '1px solid #e2e8f0', padding: '10px', borderRadius: '8px', boxShadow: '0 4px 6px -1px rgba(0,0,0,0.1)' }}>
+                                                        <p style={{ margin: 0, fontWeight: 'bold', color: '#1e293b' }}>{label}</p>
+                                                        <p style={{ margin: '5px 0 0 0', color: '#10b981', fontWeight: 600 }}>⚡ {data.prod} kg/pessoa</p>
+                                                        <p style={{ margin: 0, fontSize: '11px', color: '#64748b' }}>Total: {data.ton}kg / {data.staff} pessoas</p>
+                                                    </div>
+                                                );
+                                            }
+                                            return null;
+                                        }}
+                                    />
+                                    <Bar dataKey="prod" fill="#10b981" radius={[4, 4, 0, 0]}>
+                                        {prodSeries.map((entry, index) => (
+                                            <Cell key={`cell-prod-${index}`} fill={entry.prod > 4000 ? '#10b981' : entry.prod > 2500 ? '#f59e0b' : '#ef4444'} />
+                                        ))}
+                                    </Bar>
+                                </BarChart>
+                            </ResponsiveContainer>
+                        </div>
+                    )}
+                </div>
+            </div>
+
+            {/* MODAL DETALHES PADRÃO */}
             {
                 modalPadrao && (
                     <div className="modal-overlay" onClick={() => setModalPadrao(null)}>
                         <div className="modal-body" onClick={e => e.stopPropagation()}>
                             <div className="modal-header">
-                                <div className="modal-title">
-                                    <h3>Padrão: "{modalPadrao.termo}"</h3>
-                                    <span>{modalPadrao.count} ocorrências em {modalPadrao.categoria}</span>
-                                </div>
-                                <button onClick={() => setModalPadrao(null)} style={{ border: 'none', background: 'none', cursor: 'pointer' }}><IconX /></button>
+                                <h3 style={{ margin: 0, color: '#1e293b' }}>Detalhes do Padrão: "{modalPadrao.termo}"</h3>
+                                <button onClick={() => setModalPadrao(null)} style={{ background: 'none', border: 'none', cursor: 'pointer', color: '#64748b' }}><IconX /></button>
                             </div>
-                            <div className="results-list">
-                                {modalPadrao.exemplos.map(log => (
-                                    <div key={log.id} className="result-item" style={{ borderLeftColor: '#ef4444' }}>
-                                        <div className="result-meta">
-                                            <span>{log.data}</span>
-                                            <b style={{ color: '#ef4444' }}>{log.tipo}</b>
-                                        </div>
-                                        <div className="result-text">{log.textoOriginal}</div>
+                            <div style={{ marginBottom: '20px' }}>
+                                <span style={{ fontSize: '12px', fontWeight: 700, color: '#94a3b8', textTransform: 'uppercase' }}>Categoria</span>
+                                <div style={{ fontSize: '15px', fontWeight: 600, color: '#4f46e5' }}>{modalPadrao.categoria}</div>
+                            </div>
+                            <div style={{ marginBottom: '10px', fontSize: '13px', color: '#64748b', fontWeight: 700 }}>Exemplos de Ocorrências:</div>
+                            <div style={{ display: 'flex', flexDirection: 'column', gap: '10px' }}>
+                                {modalPadrao.exemplos.map((ex, i) => (
+                                    <div key={i} style={{ background: '#f8fafc', padding: '10px', borderRadius: '8px', border: '1px solid #e2e8f0', fontSize: '13px' }}>
+                                        <div style={{ marginBottom: '4px', fontSize: '11px', color: '#94a3b8' }}>{ex.data} - {ex.hora}</div>
+                                        <div>{ex.textoOriginal}</div>
                                     </div>
                                 ))}
                             </div>

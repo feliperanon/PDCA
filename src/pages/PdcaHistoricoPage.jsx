@@ -1,7 +1,7 @@
 // src/pages/PdcaHistoricoPage.jsx
 import { useEffect, useMemo, useState } from "react";
 import { Link } from "react-router-dom";
-import { collection, getDocs, orderBy, query, deleteDoc, doc } from "firebase/firestore";
+import { collection, getDocs, orderBy, query, deleteDoc, doc, where } from "firebase/firestore";
 import { db } from "../firebase.js";
 
 function toDate(str) {
@@ -36,7 +36,8 @@ export function PdcaHistoricoPage() {
         snap.forEach((docSnap) => {
           const data = docSnap.data();
           const situacao = data.situacao || "ativo";
-          if (situacao === "concluido" || situacao === "cancelado") {
+          // [FIX] Allow "Em Andamento" to appear in history
+          if (["concluido", "cancelado", "Em Andamento", "ativo"].includes(situacao)) {
             const plan = data.plan || {};
             // Determine type: 'turno' if has snapshot or special code, else 'pdca'
             const isTurno = !!data.snapshot || (data.codigo && data.codigo.startsWith("TURNO-"));
@@ -176,6 +177,19 @@ export function PdcaHistoricoPage() {
       return;
     }
     try {
+      // 1. Get the doc to check if it's a turno and get IDs
+      const item = pdcas.find(p => p.id === id);
+
+      // 2. Delete Sync: If Turno, delete from 'daily_operations'
+      if (item && item.type === 'turno' && item.snapshot?.dailyData) {
+        const { date, shift } = item.snapshot.dailyData;
+        if (date && shift) {
+          const opId = `${date}_${shift}`;
+          await deleteDoc(doc(db, "daily_operations", opId));
+          console.log("Deleted synced daily_operation:", opId);
+        }
+      }
+
       await deleteDoc(doc(db, "pdcas", id));
       setPdcas(prev => prev.filter(p => p.id !== id));
       alert("Registro excluído com sucesso.");
@@ -184,6 +198,58 @@ export function PdcaHistoricoPage() {
       alert("Erro ao excluir registro.");
     }
   }
+
+  // --- CLEANUP TOOL ---
+  const handleCleanupOrphans = async () => {
+    if (!window.confirm("ATENÇÃO: Isso irá verificar e excluir registros de 'Espelho Operacional' (Closed) que não possuem um PDCA correspondente no histórico (foram excluídos incorretamente antes). Deseja continuar?")) return;
+
+    setLoading(true);
+    try {
+      // 1. Get ALL Daily Ops (Open or Closed)
+      // Removing the 'where' clause to catch everything that is not in PDCA history
+      const qOps = collection(db, "daily_operations");
+      const snapOps = await getDocs(qOps);
+      const closedOps = snapOps.docs.map(d => ({ id: d.id, ...d.data() }));
+
+      // 2. Get All PDCAs (Turnos)
+      // We already have 'pdcas' state, but let's ensure we use the full list if filtered? 
+      // 'pdcas' state is full list from load().
+      const validOpIds = new Set();
+      pdcas.forEach(p => {
+        if (p.type === 'turno' && p.snapshot?.dailyData) {
+          const { date, shift } = p.snapshot.dailyData;
+          if (date && shift) validOpIds.add(`${date}_${shift}`);
+        }
+      });
+
+      // 3. Find Orphans
+      const orphans = closedOps.filter(op => !validOpIds.has(op.id));
+
+      console.log("--- CLEANUP DEBUG ---");
+      console.log(`Total DailyOps in DB: ${closedOps.length}`);
+      console.log(`Total Valid PDCA Links: ${validOpIds.size}`);
+      console.log(`Orphans Found: ${orphans.length}`);
+      console.log("Orphans:", orphans.map(o => o.id));
+
+      if (orphans.length === 0) {
+        alert(`Varredura completa!\n\n- Total de Operações no Banco: ${closedOps.length}\n- Total de Links Válidos (Histórico): ${validOpIds.size}\n- Órfãos encontrados: 0\n\nEstá tudo sincronizado! ✨`);
+      } else {
+        const orphanList = orphans.map(o => `• ${o.date} (${o.shift})`).join('\n');
+        const confirmMsg = `Encontrados ${orphans.length} registros sem vínculo (Fantasmas):\n\n${orphanList}\n\nDeseja EXCLUIR esses arquivos permanentemente?`;
+
+        if (window.confirm(confirmMsg)) {
+          await Promise.all(orphans.map(op => deleteDoc(doc(db, "daily_operations", op.id))));
+          alert(`Limpeza concluída! ${orphans.length} registros removidos.`);
+        }
+      }
+
+    } catch (e) {
+      console.error(e);
+      alert("Erro na limpeza.");
+    } finally {
+      setLoading(false);
+    }
+  };
 
   // ------- exportar CSV -------
 
@@ -642,6 +708,9 @@ export function PdcaHistoricoPage() {
               Excluir Selecionados
             </button>
           )}
+          <button type="button" onClick={handleCleanupOrphans} style={{ marginLeft: 'auto', fontSize: '11px', color: '#94a3b8', background: 'none', border: '1px dashed #cbd5e1', padding: '4px 8px', borderRadius: '4px', cursor: 'pointer' }} title="Corrigir dados fantasmas">
+            🔧 Manutenção de Dados
+          </button>
         </div>
         <div className="historico-export">
           <button type="button" className="btn-secondary" onClick={handleExportCsv}>Exportar CSV</button>
@@ -664,9 +733,9 @@ export function PdcaHistoricoPage() {
                   <th>Código</th>
                   <th>Título / Referência</th>
                   <th>Situação</th>
-                  <th>Área</th>
+                  <th>Dt. Op.</th>
                   <th>Responsável</th>
-                  <th>Data</th>
+                  <th>Modificado</th>
                 </tr>
               </thead>
               <tbody>
@@ -702,9 +771,17 @@ export function PdcaHistoricoPage() {
                     <td style={{ fontWeight: '600', color: activeTab === 'turnos' ? '#3b82f6' : '#111' }}>{p.codigo}</td>
                     <td>{p.titulo}</td>
                     <td>{p.situacao === "concluido" ? "Concluído" : "Cancelado"}</td>
-                    <td>{p.area || "-"}</td>
-                    <td>{p.responsavel || "-"}</td>
-                    <td>{formatDate(p)}</td>
+                    <td>
+                      {(() => {
+                        // Display Operation Date if available (Turno), else Area/created
+                        const opDate = p.snapshot?.dailyData?.date
+                          ? p.snapshot.dailyData.date.split('-').reverse().join('/')
+                          : (p.plan?.area || '-');
+                        return opDate;
+                      })()}
+                    </td>
+                    <td>{p.plan?.responsavel || '-'}</td>
+                    <td>{p.updatedAt ? new Date(p.updatedAt).toLocaleString('pt-BR') : (p.criadoEm ? new Date(p.criadoEm).toLocaleString('pt-BR') : '-')}</td>
                   </tr>
                 ))}
               </tbody>

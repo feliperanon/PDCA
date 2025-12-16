@@ -92,7 +92,7 @@ export function OperationsLogPage() {
     const styles = `
     :root { --primary: #2563eb; --primary-dark: #1e40af; --danger: #dc2626; --success: #16a34a; --warning: #eab308; --bg: #f5f7fa; --surface: #ffffff; --text: #1f2937; --border: #e5e7eb; }
     body { font-family: 'Inter', -apple-system, sans-serif; background: var(--bg); color: var(--text); margin: 0; }
-    .app-root { max-width: 1100px; margin: 0 auto; padding: 20px; }
+    .operations-page-container { max-width: 1100px; margin: 0 auto; padding: 20px; }
     
     .coach-panel { padding: 20px; border-radius: 16px; margin-bottom: 25px; display: flex; align-items: center; justify-content: space-between; position: relative; overflow: hidden; box-shadow: 0 4px 15px rgba(0,0,0,0.05); transition: all 0.5s; }
     .coach-good { background: linear-gradient(135deg, #dcfce7 0%, #bbf7d0 100%); border: 1px solid #86efac; color: #14532d; }
@@ -509,7 +509,7 @@ export function OperationsLogPage() {
         return 'badge-Outros';
     };
     return (
-        <div className="app-root">
+        <div className="operations-page-container">
             <style>{styles}</style>
             <div className={`coach-panel ${isBadDay ? 'coach-bad' : 'coach-good'}`}>
                 <div className="coach-content">
