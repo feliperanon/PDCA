@@ -209,28 +209,28 @@ export function AnalyticsDashboard() {
     const [dbError, setDbError] = useState(null);
 
     useEffect(() => {
-        // [FIX] Using getDocs instead of onSnapshot to verify data loading (matched with Debug Button success)
-        async function fetchData() {
-            try {
-                const q = query(collection(db, "daily_operations"));
-                const querySnapshot = await getDocs(q);
-                const data = querySnapshot.docs.map(doc => ({ id: doc.id, ...doc.data() }));
+        // [FIX] Using onSnapshot without orderBy for maximum compatibility and real-time updates
+        const q = query(collection(db, "daily_operations"));
+        const unsubscribe = onSnapshot(q, (snapshot) => {
+            const data = snapshot.docs.map(doc => ({ id: doc.id, ...doc.data() }));
 
-                // Sort in memory by date asc
-                data.sort((a, b) => {
-                    if (a.date < b.date) return -1;
-                    if (a.date > b.date) return 1;
-                    return 0;
-                });
+            // Safe Sort in memory
+            data.sort((a, b) => {
+                const da = a.date || '';
+                const db = b.date || '';
+                if (da < db) return -1;
+                if (da > db) return 1;
+                return 0;
+            });
 
-                setDailyOps(data);
-                setDbError(null);
-            } catch (error) {
-                console.error("Erro daily_operations:", error);
-                setDbError(error.message);
-            }
-        }
-        fetchData();
+            setDailyOps(data);
+            setDbError(null);
+            console.log("DailyOps loaded:", data.length);
+        }, (error) => {
+            console.error("Erro daily_operations:", error);
+            setDbError(error.message);
+        });
+        return () => unsubscribe();
     }, []);
 
     // --- COMPONENT: INFO TIP ---
@@ -476,10 +476,20 @@ export function AnalyticsDashboard() {
         const bestDays = sortedByScore.slice(0, 5);
         const worstDays = sortedByScore.slice(-5).reverse(); // Piores Scores (Menor eficiencia)
 
+        // --- DEBUG COUNTS ---
+        const invalidReasons = {
+            total: dailyOps.length,
+            filteredByDate: dailyOps.length - filteredOps.length,
+            notClosed: filteredOps.length - completedOps.length,
+            missingTon: completedOps.filter(o => !o.tonelagem).length,
+            missingSaida: completedOps.filter(o => !o.hora_saida).length,
+            valid: validPoints.length
+        };
+
         return {
             analysisResult: {
                 slope, intercept, correlation, insights, points: dataWithClusters, clusterInsights, productivitySeries, bestDays, worstDays, dataPointCount: validPoints.length,
-                meta: { total: dailyOps.length, filtered: filteredOps.length, considered: completedOps.length, valid: validPoints.length }
+                meta: invalidReasons
             },
             openRoutines: openList
         };
@@ -649,8 +659,16 @@ export function AnalyticsDashboard() {
                             <div style={{ height: '300px', display: 'flex', alignItems: 'center', justifyContent: 'center', color: '#94a3b8', background: '#f8fafc', borderRadius: '8px', flexDirection: 'column', gap: '10px', textAlign: 'center' }}>
                                 <div style={{ fontSize: '24px' }}>❄️</div>
                                 <div style={{ fontWeight: 600 }}>Aguardando Dados Completos</div>
-                                <div style={{ fontSize: '11px', color: '#64748b', background: '#e2e8f0', padding: '5px 10px', borderRadius: '4px' }}>
-                                    Status: {metaStats.total} total / {metaStats.filtered} no período / {metaStats.considered} fechados / {metaStats.valid} plotáveis
+                                <div style={{ fontSize: '11px', color: '#64748b', background: '#e2e8f0', padding: '5px 10px', borderRadius: '4px', display: 'flex', flexDirection: 'column', gap: '4px' }}>
+                                    <div>Status: {metaStats.total} total / {metaStats.valid} plotáveis</div>
+                                    {(metaStats.total > 0 && metaStats.valid === 0) && (
+                                        <div style={{ color: '#ef4444' }}>
+                                            Motivos:
+                                            {metaStats.notClosed > 0 && ` ${metaStats.notClosed} abertos,`}
+                                            {metaStats.missingTon > 0 && ` ${metaStats.missingTon} s/ Tonelagem,`}
+                                            {metaStats.missingSaida > 0 && ` ${metaStats.missingSaida} s/ H.Saída`}
+                                        </div>
+                                    )}
                                 </div>
                                 <div style={{ fontSize: '13px', maxWidth: '300px', color: '#64748b' }}>
                                     Para gerar dispersão inteligente, feche operações com:
