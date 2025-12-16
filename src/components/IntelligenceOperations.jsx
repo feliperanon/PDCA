@@ -3,12 +3,12 @@ import {
     LineChart, Line, XAxis, YAxis, Tooltip, ResponsiveContainer, AreaChart, Area
 } from 'recharts';
 import {
-    Brain, Zap, TrendingUp, AlertTriangle, CheckCircle, Target, Activity
+    Brain, Zap, TrendingUp, AlertTriangle, CheckCircle, Target, Activity, Lightbulb as IconLightbulb
 } from 'lucide-react';
 
-export function IntelligenceOperations({ logs, mirrorData }) {
+export function IntelligenceOperations({ logs, mirrorData, dailyMetrics }) {
     // --- 1. PROCESSAMENTO DE DADOS ---
-    const { healthScore, trendData, insights } = useMemo(() => {
+    const { healthScore, trendData, insights, efficiencyData } = useMemo(() => {
         const hoje = new Date().toISOString().split('T')[0];
         const seteDiasAtras = new Date();
         seteDiasAtras.setDate(seteDiasAtras.getDate() - 6);
@@ -68,6 +68,28 @@ export function IntelligenceOperations({ logs, mirrorData }) {
             if (score <= 60) insightsList.push({ type: 'bad', text: "Turno com problemas. Verifique os relatos." });
         }
 
+        // Eficiência (Tonelagem / Funcionário)
+        let efficiencyInfo = null;
+        if (dailyMetrics && dailyMetrics.tonelagem && dailyMetrics.qtdFuncionarios > 0) {
+            const kgPorPessoa = Math.round(dailyMetrics.tonelagem / dailyMetrics.qtdFuncionarios);
+            let statusEficiencia = 'neutral';
+            let labelEficiencia = 'Normal';
+
+            if (kgPorPessoa > 1200) { statusEficiencia = 'high'; labelEficiencia = 'Alta Eficiência'; }
+            else if (kgPorPessoa < 800) { statusEficiencia = 'low'; labelEficiencia = 'Baixa Eficiência'; }
+
+            efficiencyInfo = {
+                val: kgPorPessoa,
+                status: statusEficiencia,
+                label: labelEficiencia,
+                total: dailyMetrics.tonelagem,
+                staff: dailyMetrics.qtdFuncionarios
+            };
+
+            if (statusEficiencia === 'high') insightsList.push({ type: 'good', text: `Eficiência recorde! ${kgPorPessoa}kg/pessoa.` });
+            if (statusEficiencia === 'low') insightsList.push({ type: 'bad', text: `Eficiência baixa (${kgPorPessoa}kg/p). Revise processos.` });
+        }
+
         // Categoria mais frequente (Check de Gargalo)
         const catCount = {};
         logsRecentes.forEach(l => { catCount[l.categoria] = (catCount[l.categoria] || 0) + 1; });
@@ -79,9 +101,10 @@ export function IntelligenceOperations({ logs, mirrorData }) {
             trendData: dadosGrafico,
             insights: insightsList,
             topCategory: topCat ? topCat[0] : 'N/A',
-            streak: errosHoje === 0 ? 'Protegido' : 'Em Risco'
+            streak: errosHoje === 0 ? 'Protegido' : 'Em Risco',
+            efficiencyData: efficiencyInfo
         };
-    }, [logs]);
+    }, [logs, dailyMetrics, mirrorData]);
 
     // --- STYLES (Inline para isolamento) ---
     const containerStyle = {
@@ -161,6 +184,37 @@ export function IntelligenceOperations({ logs, mirrorData }) {
                     </p>
                 </div>
 
+                {/* KPI 1.5: EFICIÊNCIA (NOVO) */}
+                {efficiencyData && (
+                    <div style={cardStyle}>
+                        <div style={{ display: 'flex', justifyContent: 'space-between', marginBottom: '10px' }}>
+                            <span style={{ fontSize: '13px', fontWeight: '600', color: '#64748b' }}>EFICIÊNCIA</span>
+                            <div className="tooltip-container" style={{ position: 'relative', cursor: 'pointer' }}>
+                                <IconLightbulb width="16" height="16" color="#f59e0b" />
+                                <div className="tooltip-content">
+                                    <strong>Cálculo Eficiência:</strong><br />
+                                    Tonelagem ({efficiencyData.total}kg) ÷ Equipe ({efficiencyData.staff})<br />
+                                    = <strong>{efficiencyData.val} kg/pessoa</strong>
+                                </div>
+                            </div>
+                        </div>
+                        <div style={{ fontSize: '24px', fontWeight: '800', color: efficiencyData.status === 'high' ? '#22c55e' : efficiencyData.status === 'low' ? '#ef4444' : '#3b82f6', marginBottom: '5px' }}>
+                            {efficiencyData.label}
+                        </div>
+                        <div style={{ fontSize: '14px', color: '#64748b' }}>
+                            {efficiencyData.val} <small>kg/pessoa</small>
+                        </div>
+                        <div style={{ height: '6px', width: '100%', background: '#f1f5f9', borderRadius: '3px', marginTop: '12px', overflow: 'hidden' }}>
+                            <div style={{
+                                height: '100%',
+                                width: `${Math.min(100, (efficiencyData.val / 1500) * 100)}%`, // 1500kg seria "100%"
+                                background: efficiencyData.status === 'high' ? '#22c55e' : efficiencyData.status === 'low' ? '#ef4444' : '#3b82f6',
+                                transition: 'width 0.5s ease'
+                            }}></div>
+                        </div>
+                    </div>
+                )}
+
                 {/* KPI 2: TENDÊNCIA DE FALHAS */}
                 <div style={cardStyle}>
                     <div style={{ display: 'flex', justifyContent: 'space-between', marginBottom: '5px' }}>
@@ -218,6 +272,39 @@ export function IntelligenceOperations({ logs, mirrorData }) {
             100% { transform: scale(0.95); box-shadow: 0 0 0 0 rgba(34, 197, 94, 0); }
         }
         .pulse-dot { animation: pulse-dot 2s infinite; }
+
+        .tooltip-container .tooltip-content {
+            visibility: hidden;
+            width: 200px;
+            background-color: #333;
+            color: #fff;
+            text-align: center;
+            border-radius: 6px;
+            padding: 8px;
+            position: absolute;
+            z-index: 10;
+            bottom: 125%; /* Posição acima do ícone */
+            left: 50%;
+            margin-left: -100px;
+            opacity: 0;
+            transition: opacity 0.3s;
+            font-size: 11px;
+            pointer-events: none;
+        }
+        .tooltip-container .tooltip-content::after {
+            content: "";
+            position: absolute;
+            top: 100%;
+            left: 50%;
+            margin-left: -5px;
+            border-width: 5px;
+            border-style: solid;
+            border-color: #333 transparent transparent transparent;
+        }
+        .tooltip-container:hover .tooltip-content {
+            visibility: visible;
+            opacity: 1;
+        }
       `}</style>
         </div>
     );

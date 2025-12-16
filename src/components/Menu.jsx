@@ -21,15 +21,16 @@ export function Menu() {
   return (
     <nav className="app-menu" style={{
       display: 'flex', alignItems: 'center', justifyContent: 'space-between',
-      padding: '0 20px', background: '#1e293b', borderBottom: '1px solid #334155',
+      padding: '0 20px', background: '#0f172a', borderBottom: '1px solid #334155',
       height: '60px', boxShadow: '0 4px 6px -1px rgba(0,0,0,0.3)'
     }}>
-      {/* LEFT: LOGO OR TITLE (Optional, using spacer for now) */}
-      <div style={{ fontWeight: 800, fontSize: '18px', color: '#f8fafc', display: 'flex', items: 'center', gap: '8px' }}>
-        <span style={{ color: '#60a5fa' }}>PDCA</span>Insight
+      {/* LEFT: LOGO */}
+      <div style={{ fontWeight: 800, fontSize: '18px', color: '#f8fafc', display: 'flex', alignItems: 'center', gap: '8px' }}>
+        <span style={{ color: '#3b82f6' }}>PDCA</span>Insight
       </div>
 
-      <div className="app-menu-links" style={{ display: 'flex', gap: '5px', background: '#0f172a', padding: '5px', borderRadius: '30px', border: '1px solid #334155' }}>
+      {/* CENTER: MENU LINKS (User Provided Design) */}
+      <div className="app-menu-links" style={{ display: 'flex', gap: '5px', background: 'rgb(15, 23, 42)', padding: '5px', borderRadius: '30px', border: '1px solid rgb(51, 65, 85)' }}>
         {[
           { to: "/", label: "Início" },
           { to: "/pdca/novo", label: "Novo PDCA" },
@@ -43,16 +44,18 @@ export function Menu() {
           <NavLink
             key={link.to}
             to={link.to}
-            className={({ isActive }) => isActive ? "active-link" : "inactive-link"}
+            className={({ isActive }) => "menu-link" + (isActive ? " active" : "")}
+            data-discover="true"
             style={({ isActive }) => ({
               textDecoration: 'none',
               padding: '6px 16px',
               borderRadius: '20px',
               fontSize: '13px',
               fontWeight: 600,
-              color: isActive ? '#ffffff' : '#94a3b8',
-              background: isActive ? '#3b82f6' : 'transparent',
-              transition: 'all 0.2s ease'
+              color: isActive ? 'rgb(255, 255, 255)' : 'rgb(148, 163, 184)',
+              background: isActive ? 'rgb(59, 130, 246)' : 'transparent',
+              transition: '0.2s',
+              border: '1px solid transparent'
             })}
             end={link.to === "/"}
           >

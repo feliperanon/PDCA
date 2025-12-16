@@ -203,12 +203,16 @@ export function OperationsLogPage() {
         data: new Date().toISOString().split('T')[0],
         tonelagem: '',
         horaSaida: '',
+        qtdFuncionarios: '',
         faltaExpedicao: 0,
         faltaSelecao: 0,
         faltaRecebimento: 0,
         feriado: false,
         chegadaTardia: false
     });
+
+    // [NEW] Estado para métricas do dia (Tempo Real)
+    const [dailyMetrics, setDailyMetrics] = useState(null);
 
 
     // [NEW] Estado para dados em tempo real do Espelho Operacional
@@ -232,6 +236,19 @@ export function OperationsLogPage() {
                 setMirrorData(docSnap.data());
             } else {
                 setMirrorData(null);
+            }
+        });
+        return () => unsub();
+    }, []);
+
+    // 2. Listener de Métricas do Dia (Para Eficiência)
+    useEffect(() => {
+        const hoje = new Date().toISOString().split('T')[0];
+        const unsub = onSnapshot(doc(db, "daily_metrics", hoje), (docSnap) => {
+            if (docSnap.exists()) {
+                setDailyMetrics(docSnap.data());
+            } else {
+                setDailyMetrics(null);
             }
         });
         return () => unsub();
@@ -470,6 +487,7 @@ export function OperationsLogPage() {
             await setDoc(doc(db, "daily_metrics", docId), {
                 ...metricsForm,
                 tonelagem: Number(metricsForm.tonelagem),
+                qtdFuncionarios: Number(metricsForm.qtdFuncionarios),
                 faltaExpedicao: Number(metricsForm.faltaExpedicao),
                 faltaSelecao: Number(metricsForm.faltaSelecao),
                 faltaRecebimento: Number(metricsForm.faltaRecebimento),
@@ -589,7 +607,7 @@ export function OperationsLogPage() {
                     <button className="btn-magic" onClick={registrarNovo}>Registrar Ocorrência</button>
                 </div>
                 <div className="intelligence-wrapper">
-                    <IntelligenceOperations logs={logs} mirrorData={mirrorData} />
+                    <IntelligenceOperations logs={logs} mirrorData={mirrorData} dailyMetrics={dailyMetrics} />
                 </div>
             </div>
 
@@ -717,6 +735,9 @@ export function OperationsLogPage() {
 
                             <div className="form-grid-2">
                                 <div><label className="modal-label">Tonelagem (Kg)</label><input type="number" placeholder="Ex: 38000" className="modal-textarea" style={{ minHeight: '40px' }} value={metricsForm.tonelagem} onChange={(e) => setMetricsForm({ ...metricsForm, tonelagem: e.target.value })} /></div>
+                                <div><label className="modal-label">Qtd. Funcionários</label><input type="number" placeholder="Ex: 15" className="modal-textarea" style={{ minHeight: '40px' }} value={metricsForm.qtdFuncionarios} onChange={(e) => setMetricsForm({ ...metricsForm, qtdFuncionarios: e.target.value })} /></div>
+                            </div>
+                            <div className="form-grid-2" style={{ marginTop: '15px' }}>
                                 <div><label className="modal-label">Horário Saída Caminhão</label><input type="time" className="modal-textarea" style={{ minHeight: '40px' }} value={metricsForm.horaSaida} onChange={(e) => setMetricsForm({ ...metricsForm, horaSaida: e.target.value })} /></div>
                             </div>
 

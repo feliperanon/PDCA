@@ -10,7 +10,8 @@ import {
     where,
     getDocs,
     orderBy,
-    addDoc
+    addDoc,
+    limit
 } from "firebase/firestore";
 import { db } from "../firebase";
 
@@ -245,11 +246,37 @@ export function DailyOperationsPage() {
         setDailyData({
             staff_real: {}, attendance_log: {}, tonelagem: '', hora_chegada: '', hora_saida: '', relatorio_lider: '', rating: 0, status: 'open'
         });
-        const unsub = onSnapshot(doc(db, "daily_operations", docId), (docSnap) => {
-            if (docSnap.exists()) setDailyData(prev => ({ ...prev, ...docSnap.data() }));
+        const unsub = onSnapshot(doc(db, "daily_operations", docId), async (docSnap) => {
+            if (docSnap.exists()) {
+                setDailyData(prev => ({ ...prev, ...docSnap.data() }));
+            } else {
+                // CARRY FORWARD LOGIC
+                try {
+                    const qPrev = query(
+                        collection(db, "daily_operations"),
+                        where("shift", "==", currentShift),
+                        where("date", "<", selectedDate),
+                        orderBy("date", "desc"),
+                        limit(1)
+                    );
+                    const querySnapshot = await getDocs(qPrev);
+                    if (!querySnapshot.empty) {
+                        const lastDoc = querySnapshot.docs[0].data();
+                        if (lastDoc.attendance_log) {
+                            setDailyData(prev => ({
+                                ...prev,
+                                attendance_log: lastDoc.attendance_log,
+                                staff_real: lastDoc.staff_real || {}
+                            }));
+                        }
+                    }
+                } catch (err) {
+                    console.error("Error carry forward:", err);
+                }
+            }
         });
         return () => unsub();
-    }, [docId]);
+    }, [docId, selectedDate, currentShift]);
 
     const carregarFechados = async () => {
         const q = query(collection(db, "daily_operations"), where("status", "==", "closed"));
@@ -416,16 +443,17 @@ export function DailyOperationsPage() {
 
         // Pre-calculate default sector list
         // Strategy: Default list shows ONLY current shift employees for this sector.
+        const normalizedSectorLabel = removerAcentos(SECTORS_CONFIG.find(s => s.key === sectorKey)?.label || "").toLowerCase();
+
         const initial = all.filter(e => {
-            const cc = (e.centroCusto || "").toLowerCase();
-            const sectorLabel = SECTORS_CONFIG.find(s => s.key === sectorKey)?.label.toLowerCase() || "";
-            // Relaxed filter: Match sector + match status
-            return (cc.includes(sectorKey) || cc.includes(sectorLabel)) && e.status !== 'demitido';
+            const cc = removerAcentos(e.centroCusto || "").toLowerCase();
+            // Match exact key or label partial
+            return (cc.includes(sectorKey) || cc.includes(normalizedSectorLabel)) && e.status !== 'demitido';
         });
 
         // Filter by Current Shift for default view
         const currentShiftEmp = initial.filter(e => {
-            const cc = (e.centroCusto || "").toLowerCase();
+            const cc = removerAcentos(e.centroCusto || "").toLowerCase();
             return cc.includes(currentShift.toLowerCase());
         });
 
@@ -441,29 +469,28 @@ export function DailyOperationsPage() {
         const logEntries = Object.entries(dailyData.attendance_log || {})
             .filter(([_, entry]) => entry.sector === checkInSector);
 
-        const activeIds = logEntries.map(([k]) => k);
+        const activeIds = logEntries.map(([k]) => String(k)); // Force String for easy comparison
 
         const active = activeIds.map(id => {
-            const emp = allEmployeesDB.find(e => e.matricula === id);
+            // Compare String(id) with String(matricula)
+            const emp = allEmployeesDB.find(e => String(e.matricula) === id);
             return emp || { matricula: id, nome: 'Desconhecido', status: 'ativo' }; // Fallback
         });
 
         // 2. AVAILABLE: 
-        // If searching: Filter all DB.
-        // If NOT searching: Show Default Sector Employees.
-        // ALWAYS exclude those already in ACTIVE.
-
         let pool = filterText ? allEmployeesDB : sectorEmployees;
 
         // Apply text filter if searching
         if (filterText) {
+            const lowerFilter = filterText.toLowerCase();
             pool = pool.filter(e =>
-                (e.nome || "").toLowerCase().includes(filterText.toLowerCase()) ||
-                (e.matricula || "").includes(filterText)
+                (e.nome || "").toLowerCase().includes(lowerFilter) ||
+                String(e.matricula).includes(lowerFilter)
             );
         }
 
-        const available = pool.filter(e => !activeIds.includes(e.matricula)).slice(0, 50); // Limit render
+        // Exclude already active (String vs String comparison)
+        const available = pool.filter(e => !activeIds.includes(String(e.matricula))).slice(0, 50);
 
         return { availableEmployees: available, activeEmployees: active };
 

@@ -98,73 +98,73 @@ export function AnalyticsDashboard() {
 
     // --- ESTILOS CSS REFORMULADOS ---
     const styles = `
-        :root { --primary: #4f46e5; --bg: #f1f5f9; --text-main: #1e293b; --text-sec: #64748b; --surface: #ffffff; --border: #e2e8f0; }
-        .dash-container { max-width: 1200px; margin: 0 auto; padding: 30px 20px; font-family: 'Inter', sans-serif; color: var(--text-main); }
+        /* Usar variáveis globais do style.css sempre que possível */
+        .dash-container { max-width: 100%; font-family: 'Inter', system-ui, sans-serif; color: var(--color-text); }
         
         .dash-header { margin-bottom: 30px; }
-        .dash-title { font-size: 28px; font-weight: 800; color: #0f172a; margin: 0; letter-spacing: -0.5px; }
-        .dash-subtitle { color: var(--text-sec); font-size: 15px; margin-top: 5px; }
-        
+        .dash-title { font-size: 28px; font-weight: 800; color: var(--color-text); margin: 0; letter-spacing: -0.5px; }
+        .dash-subtitle { color: var(--color-text-muted); font-size: 15px; margin-top: 5px; }
+
         /* GRIDS LAYOUT */
         .grid-2 { display: grid; grid-template-columns: 1fr 1fr; gap: 24px; margin-bottom: 30px; }
         .grid-3 { display: grid; grid-template-columns: 1fr 1fr 1fr; gap: 24px; margin-bottom: 30px; }
-        
+
         /* KPI GRID */
         .gamification-grid { display: grid; grid-template-columns: repeat(3, 1fr); gap: 24px; margin-bottom: 30px; }
-        .medal-card { 
-            background: var(--surface); padding: 25px; border-radius: 16px; border: 1px solid var(--border); text-align: center; 
-            box-shadow: 0 4px 6px -1px rgba(0,0,0,0.05); transition: transform 0.2s; position: relative; overflow: hidden; 
+        .medal-card {
+            background: var(--color-surface); padding: 25px; border-radius: 16px; border: 1px solid var(--color-border-subtle); text-align: center;
+            box-shadow: 0 4px 6px -1px rgba(0, 0, 0, 0.05); transition: transform 0.2s; position: relative; overflow: hidden;
         }
-        .medal-card:hover { transform: translateY(-4px); box-shadow: 0 10px 15px -3px rgba(0,0,0,0.05); }
+        .medal-card:hover { transform: translateY(-4px); box-shadow: 0 10px 15px -3px rgba(0, 0, 0, 0.05); }
         .medal-icon { font-size: 32px; margin-bottom: 10px; display: block; filter: grayscale(0.2); opacity: 0.9; }
-        .medal-value { font-size: 32px; font-weight: 800; color: #0f172a; display: block; line-height: 1.2; }
-        .medal-label { font-size: 12px; color: var(--text-sec); text-transform: uppercase; font-weight: 700; letter-spacing: 0.8px; }
-        
+        .medal-value { font-size: 32px; font-weight: 800; color: var(--color-text); display: block; line-height: 1.2; }
+        .medal-label { font-size: 12px; color: var(--color-text-muted); text-transform: uppercase; font-weight: 700; letter-spacing: 0.8px; }
+
         /* PATTERNS SECTION (DARK MODE STYLE) */
-        .patterns-section { 
-            background: linear-gradient(135deg, #1e1b4b 0%, #312e81 100%); border-radius: 20px; padding: 30px; 
-            margin-bottom: 30px; color: white; box-shadow: 0 20px 25px -5px rgba(49, 46, 129, 0.4); 
+        .patterns-section {
+            background: linear-gradient(135deg, #1e1b4b 0%, #312e81 100%); border-radius: 20px; padding: 30px;
+            margin-bottom: 30px; color: white; box-shadow: 0 20px 25px -5px rgba(49, 46, 129, 0.4);
         }
         .patterns-header { display: flex; align-items: center; gap: 15px; margin-bottom: 25px; }
         .patterns-grid { display: grid; grid-template-columns: repeat(auto-fill, minmax(280px, 1fr)); gap: 16px; }
-        .pattern-card { 
-            background: rgba(255,255,255,0.07); backdrop-filter: blur(10px); border: 1px solid rgba(255,255,255,0.1); 
-            padding: 16px 20px; border-radius: 14px; cursor: pointer; transition: all 0.2s; 
+        .pattern-card {
+            background: rgba(255, 255, 255, 0.07); backdrop-filter: blur(10px); border: 1px solid rgba(255, 255, 255, 0.1);
+            padding: 16px 20px; border-radius: 14px; cursor: pointer; transition: all 0.2s;
         }
-        .pattern-card:hover { background: rgba(255,255,255,0.15); transform: scale(1.02); }
+        .pattern-card:hover { background: rgba(255, 255, 255, 0.15); transform: scale(1.02); }
         .pattern-cat { font-size: 11px; text-transform: uppercase; color: #a5b4fc; font-weight: 700; display: block; margin-bottom: 4px; }
         .pattern-term { font-size: 18px; font-weight: 700; color: #fff; display: flex; justify-content: space-between; align-items: center; }
         .pattern-count { background: #ef4444; color: white; font-size: 12px; padding: 2px 8px; border-radius: 12px; font-weight: 700; }
-        
+
         /* GRÁFICOS */
         .charts-grid { display: grid; grid-template-columns: 1.5fr 1fr; gap: 24px; margin-bottom: 30px; }
-        .chart-card { background: var(--surface); border-radius: 16px; padding: 25px; border: 1px solid var(--border); box-shadow: 0 4px 6px -1px rgba(0,0,0,0.05); min-width: 0; }
-        .chart-header { margin-bottom: 25px; font-weight: 700; color: #334155; font-size: 15px; display: flex; justify-content: space-between; align-items: center; text-transform: uppercase; letter-spacing: 0.5px; }
-        
+        .chart-card { background: var(--color-surface); border-radius: 16px; padding: 25px; border: 1px solid var(--color-border-subtle); box-shadow: 0 4px 6px -1px rgba(0, 0, 0, 0.05); min-width: 0; }
+        .chart-header { margin-bottom: 25px; font-weight: 700; color: var(--color-text); font-size: 15px; display: flex; justify-content: space-between; align-items: center; text-transform: uppercase; letter-spacing: 0.5px; }
+
         /* SEARCH */
-        .search-section { background: var(--surface); padding: 30px; border-radius: 16px; border: 1px solid var(--border); box-shadow: 0 4px 6px -1px rgba(0,0,0,0.05); }
+        .search-section { background: var(--color-surface); padding: 30px; border-radius: 16px; border: 1px solid var(--color-border-subtle); box-shadow: 0 4px 6px -1px rgba(0, 0, 0, 0.05); }
         .search-box { position: relative; margin-bottom: 20px; }
-        .search-input { 
-            width: 100%; padding: 16px 20px 16px 50px; border: 2px solid var(--border); border-radius: 12px; 
-            font-size: 16px; outline: none; transition: border 0.2s; background: #f8fafc; color: var(--text-main);
+        .search-input {
+            width: 100%; padding: 16px 20px 16px 50px; border: 2px solid var(--color-border-subtle); border-radius: 12px;
+            font-size: 16px; outline: none; transition: border 0.2s; background: var(--color-surface-soft); color: var(--color-text);
         }
-        .search-input:focus { border-color: var(--primary); background: #fff; box-shadow: 0 0 0 4px rgba(79, 70, 229, 0.1); }
-        .search-icon-pos { position: absolute; left: 20px; top: 18px; color: var(--text-sec); }
+        .search-input:focus { border-color: var(--color-primary); background: #fff; box-shadow: 0 0 0 4px var(--color-primary-soft); }
+        .search-icon-pos { position: absolute; left: 20px; top: 18px; color: var(--color-text-muted); }
         
         .results-list { max-height: 400px; overflow-y: auto; display: grid; gap: 10px; }
-        .result-item { padding: 16px; background: #f8fafc; border-radius: 12px; border: 1px solid var(--border); transition: transform 0.1s; border-left: 4px solid #cbd5e1; }
+        .result-item { padding: 16px; background: var(--color-surface-soft); border-radius: 12px; border: 1px solid var(--color-border-subtle); transition: transform 0.1s; border-left: 4px solid #cbd5e1; }
         .result-item:hover { background: #fff; border-color: #cbd5e1; transform: translateX(2px); }
-        .result-meta { font-size: 12px; color: var(--text-sec); font-weight: 600; display: flex; justify-content: space-between; margin-bottom: 6px; }
-        .result-text { font-size: 14px; color: var(--text-main); line-height: 1.5; }
-        
+        .result-meta { font-size: 12px; color: var(--color-text-muted); font-weight: 600; display: flex; justify-content: space-between; margin-bottom: 6px; }
+        .result-text { font-size: 14px; color: var(--color-text); line-height: 1.5; }
+
         /* MODAL */
         .modal-overlay { position: fixed; inset: 0; background: rgba(15, 23, 42, 0.5); display: flex; justify-content: center; align-items: center; z-index: 50; backdrop-filter: blur(4px); }
-        .modal-body { background: white; width: 90%; max-width: 500px; max-height: 80vh; overflow-y: auto; border-radius: 16px; padding: 25px; animation: popIn 0.3s; box-shadow: 0 25px 50px -12px rgba(0,0,0,0.25); }
-        .modal-header { display: flex; justify-content: space-between; align-items: center; margin-bottom: 20px; padding-bottom: 15px; border-bottom: 1px solid var(--border); }
-        
+        .modal-body { background: white; width: 90%; max-width: 500px; max-height: 80vh; overflow-y: auto; border-radius: 16px; padding: 25px; animation: popIn 0.3s; box-shadow: 0 25px 50px -12px rgba(0, 0, 0, 0.25); }
+        .modal-header { display: flex; justify-content: space-between; align-items: center; margin-bottom: 20px; padding-bottom: 15px; border-bottom: 1px solid var(--color-border-subtle); }
+
         @keyframes popIn { from { transform: scale(0.95); opacity: 0; } to { transform: scale(1); opacity: 1; } }
-        @media (max-width: 900px) { .gamification-grid, .charts-grid, .patterns-grid { grid-template-columns: 1fr; } }
-    `;
+        @media(max-width: 900px) { .gamification-grid, .charts-grid, .patterns-grid { grid-template-columns: 1fr; } }
+`;
 
     // --- ESTADOS ---
     const [logs, setLogs] = useState([]);
@@ -206,16 +206,31 @@ export function AnalyticsDashboard() {
 
     // --- FIRESTORE DAILY OPERATIONS (REAL DATA) ---
     const [dailyOps, setDailyOps] = useState([]);
+    const [dbError, setDbError] = useState(null);
 
     useEffect(() => {
-        const q = query(collection(db, "daily_operations"), orderBy("date", "asc"));
-        const unsubscribe = onSnapshot(q, (querySnapshot) => {
-            const data = querySnapshot.docs.map(doc => ({ id: doc.id, ...doc.data() }));
-            setDailyOps(data);
-        }, (error) => {
-            console.error("Erro daily_operations:", error);
-        });
-        return () => unsubscribe();
+        // [FIX] Using getDocs instead of onSnapshot to verify data loading (matched with Debug Button success)
+        async function fetchData() {
+            try {
+                const q = query(collection(db, "daily_operations"));
+                const querySnapshot = await getDocs(q);
+                const data = querySnapshot.docs.map(doc => ({ id: doc.id, ...doc.data() }));
+
+                // Sort in memory by date asc
+                data.sort((a, b) => {
+                    if (a.date < b.date) return -1;
+                    if (a.date > b.date) return 1;
+                    return 0;
+                });
+
+                setDailyOps(data);
+                setDbError(null);
+            } catch (error) {
+                console.error("Erro daily_operations:", error);
+                setDbError(error.message);
+            }
+        }
+        fetchData();
     }, []);
 
     // --- COMPONENT: INFO TIP ---
@@ -264,12 +279,23 @@ export function AnalyticsDashboard() {
             // Somar staff total de todos os setores
             let totalStaff = 0;
             // [NEW] Prioriza staff_effective (calculado no save). Fallback para staff_real (legado)
+            // [NEW] Helper to safely parse numbers (duplicated for scope, move to outer scope in refactor)
+            const safeParseFloat = (val) => {
+                if (!val) return 0;
+                if (typeof val === 'number') return val;
+                let v = val.trim();
+                if (v.includes('.') && v.includes(',')) v = v.replace(/\./g, '').replace(',', '.');
+                else if (v.includes(',')) v = v.replace(',', '.');
+                return Number(v) || 0;
+            };
+
+            // [NEW] Prioriza staff_effective (calculado no save). Fallback para staff_real (legado)
             const staffSource = op.staff_effective || op.staff_real;
             if (staffSource) {
-                totalStaff = Object.values(staffSource).reduce((acc, val) => acc + (Number(val) || 0), 0);
+                totalStaff = Object.values(staffSource).reduce((acc, val) => acc + (safeParseFloat(val) || 0), 0);
             }
             // Tonelagem
-            const ton = Number(op.tonelagem) || 0;
+            const ton = safeParseFloat(op.tonelagem) || 0;
 
             // Produtividade (kg/pessoa)
             const prod = totalStaff > 0 ? Math.round(ton / totalStaff) : 0;
@@ -292,14 +318,26 @@ export function AnalyticsDashboard() {
             if (!op.tonelagem || !op.hora_saida) return null;
             const [h, m] = op.hora_saida.split(':').map(Number);
             const yTime = h + (m / 60);
-            const xTon = Number(op.tonelagem) / 1000; // Em k
+
+            // [NEW] Helper to safely parse numbers (handles "1.500" as 1500 and "10,5" as 10.5)
+            const safeParseFloat = (val) => {
+                if (!val) return 0;
+                if (typeof val === 'number') return val;
+                let v = val.trim();
+                if (v.includes('.') && v.includes(',')) v = v.replace(/\./g, '').replace(',', '.');
+                else if (v.includes(',')) v = v.replace(',', '.');
+                return Number(v) || 0;
+            };
+
+            const xTon = safeParseFloat(op.tonelagem) / 1000; // Em k
 
             // [NEW] Efficiency Score Calculation (Volume / (Staff * Time))
             // High Volume, Low Staff, Early Time -> High Score
             const staffRaw = op.staff_effective || op.staff_real || {};
-            const totalStaff = Object.values(staffRaw).reduce((acc, val) => acc + (Number(val) || 0), 0);
+            const totalStaff = Object.values(staffRaw).reduce((acc, val) => acc + (safeParseFloat(val) || 0), 0);
+
             // Evitar divisão por zero. Se staff=0 ou Time=0, score=0.
-            const efficiencyScore = (totalStaff > 0 && yTime > 0) ? (Number(op.tonelagem) / (totalStaff * yTime)) : 0;
+            const efficiencyScore = (totalStaff > 0 && yTime > 0) ? (safeParseFloat(op.tonelagem) / (totalStaff * yTime)) : 0;
 
             return { x: xTon, y: yTime, raw: op, efficiencyScore, totalStaff };
         }).filter(Boolean);
@@ -439,13 +477,17 @@ export function AnalyticsDashboard() {
         const worstDays = sortedByScore.slice(-5).reverse(); // Piores Scores (Menor eficiencia)
 
         return {
-            analysisResult: { slope, intercept, correlation, insights, points: dataWithClusters, clusterInsights, productivitySeries, bestDays, worstDays, dataPointCount: validPoints.length },
+            analysisResult: {
+                slope, intercept, correlation, insights, points: dataWithClusters, clusterInsights, productivitySeries, bestDays, worstDays, dataPointCount: validPoints.length,
+                meta: { total: dailyOps.length, filtered: filteredOps.length, considered: completedOps.length, valid: validPoints.length }
+            },
             openRoutines: openList
         };
 
     }, [dailyOps, dateRange, selectedShift]); // [FIX] Added filter dependencies
 
     const scatterData = analysisResult ? analysisResult.points : [];
+    const metaStats = analysisResult ? analysisResult.meta : { total: 0, filtered: 0, considered: 0, valid: 0 };
     const prodSeries = analysisResult ? analysisResult.productivitySeries : [];
     const bestDays = (analysisResult && analysisResult.bestDays) || [];
     const worstDays = (analysisResult && analysisResult.worstDays) || [];
@@ -518,7 +560,16 @@ export function AnalyticsDashboard() {
                                 <option value="noite">Noite</option>
                             </select>
                         </div>
-                        <div style={{ display: 'flex', alignItems: 'center', paddingLeft: '10px' }}>
+                        <div style={{ display: 'flex', alignItems: 'center', paddingLeft: '10px', gap: '5px' }}>
+                            <button onClick={async () => {
+                                try {
+                                    const snap = await getDocs(collection(db, "daily_operations"));
+                                    alert(`DEBUG: Encontrados ${snap.size} documentos em 'daily_operations'.\nProjeto: ${db.app.options.projectId}`);
+                                    console.log("Docs:", snap.docs.map(d => d.id));
+                                } catch (e) { alert("Erro Debug: " + e.message); }
+                            }} style={{ background: '#fee2e2', border: '1px dashed #ef4444', borderRadius: '6px', padding: '6px', cursor: 'pointer', color: '#ef4444', fontSize: '10px' }} title="Debug DB">
+                                🐞
+                            </button>
                             <button onClick={() => { setDateRange({ start: '', end: '' }); setSelectedShift('all'); }} style={{ background: '#f1f5f9', border: 'none', borderRadius: '6px', padding: '6px', cursor: 'pointer', color: '#64748b' }} title="Limpar Filtros">
                                 <IconFilter />
                             </button>
@@ -598,6 +649,9 @@ export function AnalyticsDashboard() {
                             <div style={{ height: '300px', display: 'flex', alignItems: 'center', justifyContent: 'center', color: '#94a3b8', background: '#f8fafc', borderRadius: '8px', flexDirection: 'column', gap: '10px', textAlign: 'center' }}>
                                 <div style={{ fontSize: '24px' }}>❄️</div>
                                 <div style={{ fontWeight: 600 }}>Aguardando Dados Completos</div>
+                                <div style={{ fontSize: '11px', color: '#64748b', background: '#e2e8f0', padding: '5px 10px', borderRadius: '4px' }}>
+                                    Status: {metaStats.total} total / {metaStats.filtered} no período / {metaStats.considered} fechados / {metaStats.valid} plotáveis
+                                </div>
                                 <div style={{ fontSize: '13px', maxWidth: '300px', color: '#64748b' }}>
                                     Para gerar dispersão inteligente, feche operações com:
                                     <ul style={{ textAlign: 'left', margin: '10px auto', display: 'inline-block' }}>

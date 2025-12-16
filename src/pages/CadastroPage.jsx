@@ -31,7 +31,7 @@ export function CadastroPage() {
     }
 
     return (
-        <div className="page" style={{ maxWidth: '1400px', margin: '0 auto', paddingBottom: '50px' }}>
+        <div className="page" style={{ maxWidth: '100%', margin: '0 auto', paddingBottom: '50px' }}>
             {/* --- HUB ICONS (NO TEXT) --- */}
             <div className="hub-grid-minimal">
                 {categories.map((cat) => (

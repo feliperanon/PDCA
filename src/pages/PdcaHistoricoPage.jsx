@@ -770,7 +770,14 @@ export function PdcaHistoricoPage() {
                     </td>
                     <td style={{ fontWeight: '600', color: activeTab === 'turnos' ? '#3b82f6' : '#111' }}>{p.codigo}</td>
                     <td>{p.titulo}</td>
-                    <td>{p.situacao === "concluido" ? "Concluído" : "Cancelado"}</td>
+                    <td>
+                      {(() => {
+                        if (p.situacao === "concluido") return <span style={{ color: '#16a34a', fontWeight: 'bold' }}>Concluído</span>;
+                        if (p.situacao === "cancelado") return <span style={{ color: '#ef4444', fontWeight: 'bold' }}>Cancelado</span>;
+                        if (p.situacao === "Em Andamento") return <span style={{ color: '#eab308', fontWeight: 'bold' }}>Em Andamento</span>;
+                        return p.situacao || p.status;
+                      })()}
+                    </td>
                     <td>
                       {(() => {
                         // Display Operation Date if available (Turno), else Area/created
