@@ -1,6 +1,6 @@
 // src/pages/PdcaHistoricoPage.jsx
 import { useEffect, useMemo, useState } from "react";
-import { Link } from "react-router-dom";
+import { Link, useNavigate } from "react-router-dom";
 import { collection, getDocs, orderBy, query, deleteDoc, doc, where } from "firebase/firestore";
 import { db } from "../firebase.js";
 
@@ -11,18 +11,36 @@ function toDate(str) {
 }
 
 export function PdcaHistoricoPage() {
+  const navigate = useNavigate();
   const [pdcas, setPdcas] = useState([]);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState("");
   const [filtroSituacao, setFiltroSituacao] = useState("todos"); // todos | concluidos | cancelados
   const [selectedIds, setSelectedIds] = useState([]);
-  // [NEW] Tabs State
   const [activeTab, setActiveTab] = useState("pdca"); // 'pdca' | 'turnos'
   const [selectedEspelho, setSelectedEspelho] = useState(null); // Modal Data
 
   // [NEW] Date Filters
   const [filterStartDate, setFilterStartDate] = useState("");
   const [filterEndDate, setFilterEndDate] = useState("");
+
+  // [NEW] Edit/Reopen Logic
+  function handleEditOperation(p) {
+    if (!p.snapshot || !p.snapshot.dailyData) {
+      alert("Erro: Dados do espelho não encontrados para edição.");
+      return;
+    }
+    const { date, shift } = p.snapshot.dailyData;
+
+    // If closed, warn user
+    if (p.situacao === 'concluido' || p.situacao === 'Concluído') {
+      if (!window.confirm("ATENÇÃO: Este turno já foi concluído. Ao editar, você reabrirá o diário e precisará finalizar novamente. Deseja continuar?")) return;
+    }
+
+    // Navigate to Daily Operations with State
+    navigate('/diario', { state: { date, shift } });
+  }
+
 
   useEffect(() => {
     async function load() {
@@ -36,8 +54,8 @@ export function PdcaHistoricoPage() {
         snap.forEach((docSnap) => {
           const data = docSnap.data();
           const situacao = data.situacao || "ativo";
-          // [FIX] Allow "Em Andamento" to appear in history
-          if (["concluido", "cancelado", "Em Andamento", "ativo"].includes(situacao)) {
+          // [FIX] Allow "Em Andamento" and "Concluído" (with accent) to appear
+          if (["concluido", "Concluído", "cancelado", "Em Andamento", "ativo"].includes(situacao)) {
             const plan = data.plan || {};
             // Determine type: 'turno' if has snapshot or special code, else 'pdca'
             const isTurno = !!data.snapshot || (data.codigo && data.codigo.startsWith("TURNO-"));
@@ -425,79 +443,168 @@ export function PdcaHistoricoPage() {
     const snap = p.snapshot;
     const dailyData = snap.dailyData || {};
     const targets = snap.targets || {};
-    const staffReal = dailyData.staff_real || {};
+    const attendanceLog = dailyData.attendance_log || {};
+    const staffReal = dailyData.staff_real || {}; // Legacy fallback
 
-    const insight = getSmartInsights(p.id, pdcas); // Compute ranking
+    const insight = getSmartInsights(p.id, pdcas);
 
-    // [CORRECTION] User specified: "Presente deve ser Meta - Falta".
-    // Therefore, values in 'staffReal' are explicitly 'Faltas'.
-    let totalRealStaff = 0;
+    // 1. DATA PROCESSING
+    let totalPresent = 0;
+    let totalMeta = 0;
+    let totalVacancies = 0;
 
-    // We iterate over TARGETS because we need the Meta to calculate Presence.
-    Object.keys(targets).forEach(k => {
-      // Filter out non-staff keys
-      if (k !== 'meta_chegada' && k !== 'meta_saida' && k !== 'totalHeadcount') {
-        const meta = parseInt(targets[k]) || 0;
-        const faltas = parseInt(staffReal[k]) || 0; // The input IS the absence count
-        const presente = Math.max(0, meta - faltas);
+    // Absence Lists
+    const listAbsent = [];
+    const listSick = [];
+    const listVacation = [];
+    const listAway = [];
 
-        totalRealStaff += presente;
+    // Table Data
+    const sectorStats = {};
+    const validSectors = Object.keys(targets).filter(k => k !== 'meta_chegada' && k !== 'meta_saida' && k !== 'totalHeadcount');
+
+    // Helper to get Name safely
+    const getName = (entry) => entry.nome || entry.name || "Colaborador sem nome";
+
+    validSectors.forEach(secKey => {
+      const meta = parseInt(targets[secKey]) || 0;
+      let present = 0;
+      let sick = 0;
+      let vacation = 0;
+      let absent = 0;
+      let away = 0;
+
+      // Check Log
+      const entries = Object.values(attendanceLog).filter(e => e.sector === secKey);
+
+      // If log exists, use it. Else fallback.
+      if (entries.length > 0 || Object.keys(attendanceLog).length > 0) {
+        entries.forEach(e => {
+          const s = e.status || 'present';
+          if (s === 'present') present++;
+          else if (s === 'sick') { sick++; listSick.push({ name: getName(e), sector: secKey }); }
+          else if (s === 'vacation') { vacation++; listVacation.push({ name: getName(e), sector: secKey }); }
+          else if (s === 'absent') { absent++; listAbsent.push({ name: getName(e), sector: secKey }); }
+          else if (s === 'away') { away++; listAway.push({ name: getName(e), sector: secKey }); }
+        });
+      } else {
+        // FALLBACK Legacy
+        const f = parseInt(staffReal[secKey]) || 0;
+        present = Math.max(0, meta - f);
+        absent = f;
       }
+
+      // Structural Vacancy: Meta - (All Linked People)
+      // Linked People = Present + Sick + Vacation + Absent + Away
+      const totalLinked = present + sick + vacation + absent + away;
+      const vacancy = Math.max(0, meta - totalLinked);
+
+      totalPresent += present;
+      totalMeta += meta;
+      totalVacancies += vacancy;
+
+      sectorStats[secKey] = { meta, present, absent, sick, vacation, away, vacancy };
     });
 
-    // Fallback if totalRealStaff is 0 to avoid Infinity
     const tonnageVal = parseFloat(dailyData.tonelagem) || 0;
-    const kgPerPerson = totalRealStaff > 0 ? (tonnageVal / totalRealStaff) : 0;
+    const kgPerPerson = totalPresent > 0 ? (tonnageVal / totalPresent) : 0;
 
     const win = window.open("", "_blank");
     if (!win) return;
 
-    // Helper p/ cor de status
-    const getStatusColor = (real, meta) => {
-      if (!meta) return '#6b7280';
-      const r = parseInt(real) || 0;
-      const diff = meta - r;
-      if (r > 0) return '#ef4444'; // Tem falta
-      return '#10b981'; // Completo
+    // --- HTML GENERATORS ---
+
+    const buildListHtml = (list, title, color) => {
+      if (list.length === 0) return '';
+      return `
+            <div style="margin-bottom: 8px;">
+                <div style="color: ${color}; font-size: 10px; font-weight: 700; text-transform: uppercase;">${title} (${list.length})</div>
+                <div style="font-size: 11px; color: #475569; line-height: 1.4;">
+                    ${list.map(i => `<span style="display:inline-block; margin-right:10px;">• ${i.name} <span style="opacity:0.6; font-size:9px">(${i.sector})</span></span>`).join('')}
+                </div>
+            </div>
+        `;
     };
+
+    const absencesHtml = `
+        <div class="card" style="height: 100%; margin-bottom: 0;">
+            <div class="section-title" style="border-left-color: #f59e0b;">⚠️ Detalhamento de Ausências</div>
+            ${listAbsent.length + listSick.length + listVacation.length + listAway.length === 0
+        ? '<div style="color:#94a3b8; font-style:italic;">Nenhuma ausência registrada.</div>'
+        : `
+                    ${buildListHtml(listAbsent, "Faltas Injustificadas", "#ef4444")}
+                    ${buildListHtml(listSick, "Atestados", "#16a34a")}
+                    ${buildListHtml(listVacation, "Férias", "#f59e0b")}
+                    ${buildListHtml(listAway, "Afastamentos", "#64748b")}
+                  `
+      }
+        </div>
+    `;
+
+    // Summary Cards (Mimicking Dashboard)
+    const summaryCardsHtml = `
+        <div style="display: grid; grid-template-columns: repeat(5, 1fr); gap: 10px; margin-bottom: 20px;">
+             <!-- PRESENTES -->
+            <div class="metric-box" style="border-bottom: 3px solid #0ea5e9;">
+                <span class="metric-val" style="color:#0c4a6e">${totalPresent} <span style="font-size:12px; color:#94a3b8">/ ${totalMeta}</span></span>
+                <span class="metric-lbl">Presentes / Meta</span>
+            </div>
+             <!-- VAGAS (CONTRATAR) -->
+            <div class="metric-box" style="border-bottom: 3px solid ${totalVacancies > 0 ? '#ef4444' : '#e2e8f0'}; background: ${totalVacancies > 0 ? '#fef2f2' : 'white'}">
+                <span class="metric-val" style="color:${totalVacancies > 0 ? '#b91c1c' : '#94a3b8'}">${totalVacancies > 0 ? `-${totalVacancies}` : '0'}</span>
+                <span class="metric-lbl">${totalVacancies > 0 ? 'CONTRATAR (VAGAS)' : 'Vagas em Aberto'}</span>
+            </div>
+             <!-- FALTAS -->
+            <div class="metric-box" style="border-bottom: 3px solid #ef4444;">
+                <span class="metric-val" style="color:#991b1b">${listAbsent.length}</span>
+                <span class="metric-lbl">Faltas</span>
+            </div>
+             <!-- FÉRIAS -->
+            <div class="metric-box" style="border-bottom: 3px solid #f59e0b;">
+                 <span class="metric-val" style="color:#92400e">${listVacation.length}</span>
+                <span class="metric-lbl">Férias</span>
+            </div>
+             <!-- ATESTADOS -->
+            <div class="metric-box" style="border-bottom: 3px solid #16a34a;">
+                 <span class="metric-val" style="color:#166534">${listSick.length}</span>
+                <span class="metric-lbl">Atestados</span>
+            </div>
+        </div>
+    `;
+
 
     win.document.write(`
       <html>
         <head>
           <title>Relatório Operacional - ${p.codigo}</title>
           <style>
-            @page { size: A4; margin: 15mm; }
+            @page { size: A4; margin: 10mm; }
             body { 
-                font-family: 'Segoe UI', system-ui, sans-serif; 
+                font-family: 'Inter', 'Segoe UI', sans-serif; 
                 background: #fff; color: #1e293b; margin: 0; padding: 0; 
                 -webkit-print-color-adjust: exact; 
-                font-size: 12px;
+                font-size: 11px;
             }
-            .header { border-bottom: 2px solid #3b82f6; padding-bottom: 10px; margin-bottom: 20px; display: flex; justify-content: space-between; align-items: flex-end; }
-            .logo h1 { margin: 0; font-size: 22px; color: #1e293b; letter-spacing: -0.5px; }
-            .logo span { color: #64748b; font-size: 12px; text-transform: uppercase; letter-spacing: 1px; }
-            .meta-info { text-align: right; font-size: 12px; color: #64748b; }
+            .header { border-bottom: 2px solid #3b82f6; padding-bottom: 15px; margin-bottom: 20px; display: flex; justify-content: space-between; align-items: flex-end; }
+            .logo h1 { margin: 0; font-size: 24px; font-weight: 800; color: #1e293b; letter-spacing: -1px; }
+            .logo span { color: #64748b; font-size: 11px; text-transform: uppercase; letter-spacing: 2px; font-weight: 600; }
+            .meta-info { text-align: right; font-size: 11px; color: #64748b; }
             .meta-info strong { color: #3b82f6; font-size: 14px; display: block; margin-bottom: 2px; }
             
-            .card { background: #f8fafc; border: 1px solid #e2e8f0; border-radius: 8px; padding: 15px; margin-bottom: 15px; page-break-inside: avoid; }
-            .section-title { font-size: 13px; font-weight: 700; text-transform: uppercase; color: #475569; margin-bottom: 10px; border-left: 3px solid #3b82f6; padding-left: 8px; }
+            .card { background: #f8fafc; border: 1px solid #e2e8f0; border-radius: 8px; padding: 15px; page-break-inside: avoid; }
+            .section-title { font-size: 12px; font-weight: 700; text-transform: uppercase; color: #334155; margin-bottom: 12px; border-left: 3px solid #3b82f6; padding-left: 8px; letter-spacing: 0.5px; }
             
-            .metrics-grid { display: grid; grid-template-columns: repeat(5, 1fr); gap: 10px; margin-bottom: 15px; }
-            .metric-box { background: white; padding: 10px; border-radius: 6px; border: 1px solid #e2e8f0; text-align: center; }
-            .metric-val { font-size: 18px; font-weight: 800; color: #0f172a; display: block; margin-bottom: 4px; }
-            .metric-lbl { font-size: 10px; color: #64748b; text-transform: uppercase; font-weight: 600; line-height: 1.2; display:block; }
+            .metric-box { background: white; padding: 12px; border-radius: 6px; border: 1px solid #e2e8f0; text-align: center; }
+            .metric-val { font-size: 20px; font-weight: 800; display: block; margin-bottom: 2px; }
+            .metric-lbl { font-size: 9px; color: #64748b; text-transform: uppercase; font-weight: 700; letter-spacing: 0.5px; }
             
-            .staff-table { width: 100%; border-collapse: collapse; font-size: 12px; }
-            .staff-table th { text-align: left; color: #64748b; font-weight: 600; padding-bottom: 5px; border-bottom: 1px solid #e2e8f0; font-size: 10px; text-transform: uppercase; }
-            .staff-table td { padding: 8px 0; border-bottom: 1px solid #f1f5f9; font-weight: 500; }
-            .status-dot { display: inline-block; width: 6px; height: 6px; border-radius: 50%; margin-right: 6px; }
-
-            .report-box { background: #fff; padding: 15px; border-radius: 6px; border: 1px solid #cbd5e1; font-size: 12px; line-height: 1.5; white-space: pre-wrap; min-height: 80px; }
+            .staff-table { width: 100%; border-collapse: collapse; font-size: 11px; }
+            .staff-table th { text-align: left; color: #475569; font-weight: 700; padding: 6px 4px; border-bottom: 1px solid #cbd5e1; font-size: 10px; text-transform: uppercase; background: #f1f5f9; }
+            .staff-table td { padding: 8px 4px; border-bottom: 1px solid #f1f5f9; font-weight: 500; color: #334155; }
+            .status-badge { display: inline-block; padding: 2px 6px; border-radius: 4px; font-size: 9px; font-weight: 700; text-transform: uppercase; }
             
-            .insight-box { display: flex; align-items: center; gap: 15px; font-size: 12px; color: #334155; }
-            .rank-badge { background: #dbeafe; color: #1e40af; padding: 4px 10px; border-radius: 99px; font-weight: 700; font-size: 11px; }
-            
-            .footer { margin-top: 30px; border-top: 1px solid #e2e8f0; padding-top: 10px; display: flex; justify-content: space-between; font-size: 10px; color: #94a3b8; }
+            .report-box { white-space: pre-wrap; color: #334155; line-height: 1.6; }
+            .footer { margin-top: 30px; border-top: 1px solid #e2e8f0; padding-top: 10px; display: flex; justify-content: space-between; font-size: 9px; color: #94a3b8; }
           </style>
         </head>
         <body>
@@ -507,70 +614,72 @@ export function PdcaHistoricoPage() {
                     <span>Relatório de Turno</span>
                 </div>
                 <div class="meta-info">
-                    <strong>DATA: ${fixDate(dailyData.date)}</strong>
-                    TURNO: ${String(dailyData.shift).toUpperCase()} 
+                    <strong>${fixDate(dailyData.date || p.criadoEm)} • ${String(dailyData.shift || 'Turno Indefinido').toUpperCase()}</strong>
+                    Gerado em ${new Date().toLocaleString('pt-BR')}
                 </div>
             </div>
 
-            <div class="metrics-grid">
+            <!-- KEY METRICS ROW -->
+            <div style="display: grid; grid-template-columns: 1fr 1fr 1fr 1fr; gap: 10px; margin-bottom: 20px;">
                 <div class="metric-box">
-                    <span class="metric-val" style="color:#3b82f6">${formatNumberBr(dailyData.tonelagem)} Kg</span>
-                    <span class="metric-lbl">Peso Movimentado</span>
+                    <span class="metric-val" style="color:#3b82f6">${formatNumberBr(dailyData.tonelagem)} <span style="font-size:12px">kg</span></span>
+                    <span class="metric-lbl">Produção Total</span>
                 </div>
-                 <div class="metric-box">
-                    <span class="metric-val" style="color:#0f172a">${formatNumberBr(kgPerPerson)} Kg</span>
-                    <span class="metric-lbl">Peso / Pessoa</span>
+                <div class="metric-box">
+                    <span class="metric-val" style="color:#0f172a">${formatNumberBr(kgPerPerson)} <span style="font-size:12px">kg</span></span>
+                    <span class="metric-lbl">Produtivo / Pessoa</span>
                 </div>
-                 <div class="metric-box">
-                    <span class="metric-val" style="color:#0f172a">${totalRealStaff}</span>
-                    <span class="metric-lbl">Colab. Presentes</span>
-                </div>
-                 <div class="metric-box">
+                <div class="metric-box">
                     <span class="metric-val">${dailyData.hora_chegada || '--:--'}</span>
                     <span class="metric-lbl">Chegada Mercadoria</span>
                 </div>
-                 <div class="metric-box">
+                <div class="metric-box">
                     <span class="metric-val" style="color:${dailyData.chegada_tardia ? '#ef4444' : '#10b981'}">${dailyData.hora_saida || '--:--'}</span>
-                    <span class="metric-lbl">Saída Caminhão</span>
+                    <span class="metric-lbl">Encerramento</span>
                 </div>
             </div>
 
-            <div style="display: grid; grid-template-columns: 1fr 1fr; gap: 15px;">
+            <!-- PEOPLE SUMMARY (NEW CARD) -->
+            ${summaryCardsHtml}
+
+            <!-- MAIN CONTENT GRID -->
+            <div style="display: grid; grid-template-columns: 55% 45%; gap: 15px; margin-bottom: 20px;">
+                
+                <!-- LEFT COL: HEADCOUNT -->
                 <div class="card">
-                    <div class="section-title">Saúde das Equipes (Headcount)</div>
+                    <div class="section-title">Detalhamento por Setor</div>
                     <table class="staff-table">
                         <thead>
                             <tr>
                                 <th>Setor</th>
                                 <th>Meta</th>
-                                <th>Presente</th>
-                                <th>Faltas</th>
-                                <th style="text-align:right">Status</th>
+                                <th>Pres.</th>
+                                <th>Ausências</th>
+                                <th>Status</th>
                             </tr>
                         </thead>
                         <tbody>
-                            ${Object.keys(targets).filter(k => k !== 'meta_chegada' && k !== 'meta_saida' && k !== 'totalHeadcount').map(key => {
-      const meta = parseInt(targets[key]) || 0;
-      const faltas = parseInt(staffReal[key]) || 0; // Input is Faltas
-      const presente = Math.max(0, meta - faltas);  // Calc presence
+                            ${Object.keys(sectorStats).map(key => {
+      const s = sectorStats[key];
+      // Status Logic
+      let statusHtml = '';
+      if (s.vacancy > 0) statusHtml = `<span class="status-badge" style="background:#fee2e2; color:#b91c1c">VAGAS: -${s.vacancy}</span>`;
+      else if (s.absent > 0) statusHtml = `<span class="status-badge" style="background:#fef3c7; color:#b45309">FALTAS: ${s.absent}</span>`;
+      else statusHtml = `<span class="status-badge" style="background:#dcfce7; color:#15803d">OK</span>`;
 
-      // Color logic: if falts > 0, danger.
-      const color = faltas > 0 ? '#ef4444' : '#10b981';
-      const label = faltas > 0 ? `-${faltas}` : 'OK';
-
-      // Verify what logic user wants for table columns:
-      // "presente deveria ser meta-falta" -> Col Presente = calc(presente)
-      // "Faltas" -> Col Faltas = faltas
+      // Absence Column Detail
+      let absenceDetail = [];
+      if (s.absent > 0) absenceDetail.push(`${s.absent}F`);
+      if (s.sick > 0) absenceDetail.push(`${s.sick}A`);
+      if (s.vacation > 0) absenceDetail.push(`${s.vacation}Fer`);
 
       return `
                                     <tr>
-                                        <td style="text-transform:capitalize">${key.replace('_', ' ')}</td>
-                                        <td>${meta}</td>
-                                        <td style="font-weight:700">${presente}</td>
-                                        <td style="color:${faltas > 0 ? '#ef4444' : '#64748b'}">${faltas}</td>
-                                        <td style="text-align:right; color:${color}; font-weight:700">
-                                            <span class="status-dot" style="background:${color}"></span>${label}
-                                        </td>
+                                        <td style="text-transform:capitalize; font-weight:600">${key.replace('_', ' ')}</td>
+                                        <td>${s.meta}</td>
+                                        <td style="font-weight:700; color:#0f172a">${s.present}</td>
+                                        <td style="color:#64748b; font-size:10px">${absenceDetail.join(', ') || '-'}</td>
+                                        <td>${statusHtml}</td>
                                     </tr>
                                 `;
     }).join('')}
@@ -578,45 +687,40 @@ export function PdcaHistoricoPage() {
                     </table>
                 </div>
 
-                <div class="card">
-                    <div class="section-title">🧠 Super Inteligência (Insight)</div>
-                    <div class="insight-box">
-                        ${insight ? `
-                            <div style="text-align:center; padding-right:15px; border-right:1px solid #e2e8f0; min-width:80px">
-                                <span style="display:block; font-size:24px; font-weight:800; color:${insight.isBest ? '#10b981' : '#3b82f6'}">#${insight.rank}</span>
-                                <span style="font-size:10px; color:#64748b; text-transform:uppercase">Ranking</span>
+                <!-- RIGHT COL: INSIGHTS -->
+                <div style="display: flex; flexDirection: column; gap: 15px;">
+                     <div class="card" style="background: #fdf4ff; border-color: #f0abfc;">
+                        <div class="section-title" style="border-left-color: #d946ef; color:#86198f;">✨ Análise de Performance</div>
+                         ${insight ? `
+                            <div style="display:flex; align-items:center; gap:15px">
+                                 <div style="text-align:center;">
+                                    <span style="display:block; font-size:20px; font-weight:800; color:#d946ef">#${insight.rank}</span>
+                                    <span style="font-size:9px; color:#a21caf; text-transform:uppercase">Ranking</span>
+                                </div>
+                                <div style="font-size:11px; color:#701a75">
+                                    Esta foi a <b>${insight.rank}ª melhor operação</b> registrada.
+                                    <br/>Recorde atual: <b>${formatNumberBr(insight.bestTon)} kg</b>.
+                                </div>
                             </div>
-                            <div>
-                                <p style="margin:0; font-weight:600; margin-bottom:4px; font-size:13px">
-                                    ${insight.isBest ? '🏆 Recorde de Performance!' : `Performance rankeada em ${insight.rank}º lugar.`}
-                                </p>
-                                <p style="margin:0; color:#475569; margin-bottom:6px">
-                                    Operação com <strong>${formatNumberBr(kgPerPerson)} Kg/Pessoa</strong>.
-                                    ${!insight.isBest ? `O recorde atual é de ${formatNumberBr(insight.bestTon)} Kg totais.` : 'Excelente trabalho da equipe!'}
-                                </p>
-                                <p style="margin:0; color:#64748b; font-style:italic">
-                                   "A produtividade depende da constância. Analise as faltas para melhorar o próximo turno."
-                                </p>
-                            </div>
-                        ` : '<p>Dados insuficientes para ranking detalhado.</p>'}
+                        ` : '<div style="font-size:11px; color:#86198f">Dados insuficientes para análise comparativa.</div>'}
+                    </div>
+
+                    <div class="card">
+                         <div class="section-title">📋 Relatório do Líder</div>
+                         <div class="report-box">${dailyData.relatorio_lider || "Nenhum reporte registrado."}</div>
                     </div>
                 </div>
+
             </div>
 
-            <div class="card" style="background: #fff; border: 2px solid #e2e8f0;">
-                <div class="section-title">📝 Relatório do Líder & Ocorrências</div>
-                <div class="report-box">${dailyData.relatorio_lider || "Nenhum reporte registrado."}</div>
+            <!-- BOTTOM GRID: ABSENCES & NOTES -->
+            <div style="display: grid; grid-template-columns: 1fr; gap: 15px;">
+                ${absencesHtml}
             </div>
 
             <div class="footer">
-                <div>
-                    Gerado via Sistema PDCA • ${p.codigo}<br/>
-                    Usuário: ${p.responsavel} | Impresso em ${new Date().toLocaleString('pt-BR')}
-                </div>
-                <div style="text-align:right">
-                    __________________________________________<br/>
-                    Assinatura do Responsável
-                </div>
+                <div>User: ${p.responsavel} | Ref: ${p.codigo}</div>
+                <div style="font-style:italic">"A excelência operacional é um hábito, não um ato."</div>
             </div>
         </body>
       </html>

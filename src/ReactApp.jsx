@@ -10,7 +10,7 @@ import { HomePage } from "./pages/HomePage.jsx";
 import { CreatePdcaPage } from "./pages/CreatePdcaPage.jsx";
 import { PdcaDashboardPage } from "./pages/PdcaDashboardPage.jsx";
 import { PdcaDetailPage } from "./pages/PdcaDetailPage.jsx";
-import { PdcaHistoricoPage } from "./pages/PdcaHistoricoPage.jsx";
+import { OperationsDatabasePage } from "./pages/OperationsDatabasePage.jsx";
 import { CadastroPage } from "./pages/CadastroPage.jsx";
 import { LoginPage } from "./pages/LoginPage.jsx";
 import { OperationsLogPage } from "./pages/OperationsLogPage.jsx";
@@ -91,10 +91,10 @@ export default function ReactApp() {
           />
 
           <Route
-            path="/historico"
+            path="/banco-de-dados"
             element={
               <RequireAuth>
-                <PdcaHistoricoPage />
+                <OperationsDatabasePage />
               </RequireAuth>
             }
           />

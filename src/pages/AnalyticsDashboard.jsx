@@ -263,11 +263,65 @@ export function AnalyticsDashboard() {
 
     // --- CÉREBRO DA IA (REGRESSÃO LINEAR & CORRELAÇÔES) ---
     const { analysisResult, openRoutines } = React.useMemo(() => {
-        const filteredOps = dailyOps.filter(op => filterByRangeAndShift(op, 'date', 'shift'));
 
-        // [NEW] Smart Filter: Consider "Closed" for Analytics if it has data, even if status is 'open' (Legacy Support)
+        // [NEW] Helper to safely parse numbers
+        const safeParseFloat = (val) => {
+            if (!val) return 0;
+            if (typeof val === 'number') return val;
+            let v = String(val).trim();
+            // Strip any non-numeric chars except . , - (handles 'kg', currency, etc)
+            v = v.replace(/[^0-9,.-]/g, '');
+
+            if (v.includes('.') && v.includes(',')) v = v.replace(/\./g, '').replace(',', '.');
+            else if (v.includes(',')) v = v.replace(',', '.');
+            return Number(v) || 0;
+        };
+
+        // [NEW] Helper to parse date from Code (Fallback for History)
+        const parseDateFromCode = (code) => {
+            // Expects TURNO-YYYYMMDD-SHIFT
+            if (!code || typeof code !== 'string') return null;
+            const match = code.match(/TURNO-(\d{8})-/);
+            if (match && match[1]) {
+                const y = match[1].substring(0, 4);
+                const m = match[1].substring(4, 6);
+                const d = match[1].substring(6, 8);
+                return `${y}-${m}-${d}`;
+            }
+            return null;
+        };
+
+        // [NEW] Normalize LOGS (History) to be the Single Source of Truth for charts
+        // This ensures the charts match exactly what is shown in the 'Historico' table (6 items)
+        const historyData = logs.map(log => {
+            const snap = log.snapshot?.dailyData || {};
+
+            // Resolve Date: Snapshot > Code Fallback
+            let finalDate = snap.date;
+            if (!finalDate && log.codigo) {
+                finalDate = parseDateFromCode(log.codigo);
+            }
+
+            return {
+                id: log.id,
+                date: finalDate,
+                shift: snap.shift || 'manha',
+                tonelagem: snap.tonelagem,
+                hora_saida: snap.hora_saida,
+                staff_effective: snap.staff_effective,
+                staff_real: snap.staff_real,
+                status: 'closed' // History items are always effectively closed
+            };
+        });
+
+        // Filter valid items (Must have date)
+        const validHistory = historyData.filter(d => d.date);
+
+        const filteredOps = validHistory.filter(op => filterByRangeAndShift(op, 'date', 'shift'));
+
+        // Smart Filter: Consider "Closed" for Analytics if it has data
         const isEffectivelyClosed = (op) => {
-            return op.status === 'closed' || (Number(op.tonelagem) > 0 && op.hora_saida);
+            return op.status === 'closed' || (safeParseFloat(op.tonelagem) > 0 && op.hora_saida);
         };
 
         const completedOps = filteredOps.filter(isEffectivelyClosed);
@@ -276,20 +330,9 @@ export function AnalyticsDashboard() {
         // --- NEW: PRODUCTIVITY METRICS (Only Completed) ---
         const productivitySeries = completedOps.map(op => {
             // Somar staff total de todos os setores
-            // Somar staff total de todos os setores
             let totalStaff = 0;
             // [NEW] Prioriza staff_effective (calculado no save). Fallback para staff_real (legado)
-            // [NEW] Helper to safely parse numbers (duplicated for scope, move to outer scope in refactor)
-            const safeParseFloat = (val) => {
-                if (!val) return 0;
-                if (typeof val === 'number') return val;
-                let v = val.trim();
-                if (v.includes('.') && v.includes(',')) v = v.replace(/\./g, '').replace(',', '.');
-                else if (v.includes(',')) v = v.replace(',', '.');
-                return Number(v) || 0;
-            };
 
-            // [NEW] Prioriza staff_effective (calculado no save). Fallback para staff_real (legado)
             const staffSource = op.staff_effective || op.staff_real;
             if (staffSource) {
                 totalStaff = Object.values(staffSource).reduce((acc, val) => acc + (safeParseFloat(val) || 0), 0);
@@ -300,8 +343,23 @@ export function AnalyticsDashboard() {
             // Produtividade (kg/pessoa)
             const prod = totalStaff > 0 ? Math.round(ton / totalStaff) : 0;
 
-            // Fix timezone issue by manually formatting YYYY-MM-DD string
-            const [y, m, d] = op.date.split('-');
+            // FIXED: Robust Date Parsing (Supports YYYY-MM-DD and DD/MM/YYYY)
+            let dateObj = null;
+            if (op.date.includes('/')) {
+                const [d, m, y] = op.date.split('/');
+                dateObj = new Date(`${y}-${m}-${d}T12:00:00`);
+            } else {
+                dateObj = new Date(`${op.date}T12:00:00`);
+            }
+
+            // Fallback for valid date
+            if (isNaN(dateObj.getTime())) dateObj = new Date();
+
+            const d = String(dateObj.getDate()).padStart(2, '0');
+            const m = String(dateObj.getMonth() + 1).padStart(2, '0');
+            const y = dateObj.getFullYear();
+
+            const fullDate = `${y}-${m}-${d}`;
             const formattedDate = `${d}/${m}`;
 
             return {
@@ -309,7 +367,7 @@ export function AnalyticsDashboard() {
                 prod,
                 ton,
                 staff: totalStaff,
-                fullDate: op.date
+                fullDate: fullDate // Internal sort key
             };
         }).sort((a, b) => new Date(a.fullDate + 'T12:00:00') - new Date(b.fullDate + 'T12:00:00')).slice(-7); // Last 7 ops
 
@@ -319,15 +377,7 @@ export function AnalyticsDashboard() {
             const [h, m] = op.hora_saida.split(':').map(Number);
             const yTime = h + (m / 60);
 
-            // [NEW] Helper to safely parse numbers (handles "1.500" as 1500 and "10,5" as 10.5)
-            const safeParseFloat = (val) => {
-                if (!val) return 0;
-                if (typeof val === 'number') return val;
-                let v = val.trim();
-                if (v.includes('.') && v.includes(',')) v = v.replace(/\./g, '').replace(',', '.');
-                else if (v.includes(',')) v = v.replace(',', '.');
-                return Number(v) || 0;
-            };
+
 
             const xTon = safeParseFloat(op.tonelagem) / 1000; // Em k
 
@@ -682,7 +732,7 @@ export function AnalyticsDashboard() {
                             <ScatterWrapper>
                                 <ScatterChart margin={{ top: 20, right: 20, bottom: 20, left: 20 }}>
                                     <CartesianGrid strokeDasharray="3 3" />
-                                    <XAxis type="number" dataKey="x" name="Tonelagem" unit="k" domain={[10, 'dataMax + 2']} label={{ value: 'Tonelagem (k)', position: 'insideBottomRight', offset: -10 }} />
+                                    <XAxis type="number" dataKey="x" name="Tonelagem" unit="k" domain={[0, 'dataMax + 2']} label={{ value: 'Tonelagem (k)', position: 'insideBottomRight', offset: -10 }} />
                                     <YAxis type="number" dataKey="y" name="Horário" unit="h" domain={[6, 20]} label={{ value: 'Hr Saída', angle: -90, position: 'insideLeft' }} />
                                     <Tooltip cursor={{ strokeDasharray: '3 3' }} content={({ active, payload }) => {
                                         if (active && payload && payload.length) {
@@ -733,7 +783,56 @@ export function AnalyticsDashboard() {
                     {/* COLUNA DIREITA: INSIGHTS + RANKING */}
                     <div style={{ flex: 1, minWidth: '300px', display: 'flex', flexDirection: 'column', gap: '20px' }}>
 
-                        {/* CARD IA */}
+                        {/* DEBUG PANEL */}
+                        <div style={{ background: '#f8fafc', padding: '10px', border: '1px solid #e2e8f0', borderRadius: '8px', marginBottom: '20px', fontSize: '11px', fontFamily: 'monospace' }}>
+                            <strong>🔍 DEBUG MODE</strong>
+                            <div style={{ display: 'grid', gridTemplateColumns: 'repeat(4, 1fr)', gap: '10px', marginTop: '5px' }}>
+                                <div>Total Ops: {dailyOps.length}</div>
+                                <div>Filtered Utils: {typeof filterByRangeAndShift === 'function' ? 'OK' : 'ERR'}</div>
+                                <div>Dt Range: {dateRange.start || 'N/A'} - {dateRange.end || 'N/A'}</div>
+                                <div>Shift: {selectedShift}</div>
+                            </div>
+                            <table style={{ width: '100%', marginTop: '10px', borderCollapse: 'collapse' }}>
+                                <thead>
+                                    <tr style={{ background: '#e2e8f0' }}>
+                                        <th style={{ padding: '4px', textAlign: 'left' }}>Date</th>
+                                        <th style={{ padding: '4px', textAlign: 'left' }}>Ton (Raw)</th>
+                                        <th style={{ padding: '4px', textAlign: 'left' }}>X (Ton)</th>
+                                        <th style={{ padding: '4px', textAlign: 'left' }}>Y (Time)</th>
+                                        <th style={{ padding: '4px', textAlign: 'left' }}>Check</th>
+                                    </tr>
+                                </thead>
+                                <tbody>
+                                    {dailyOps.slice(0, 5).map(op => {
+                                        // [NEW] Helper to safely parse numbers (duplicated for scope, move to outer scope in refactor)
+                                        const safeParseFloat = (val) => {
+                                            if (!val) return 0;
+                                            if (typeof val === 'number') return val;
+                                            let v = String(val).trim();
+                                            v = v.replace(/[^0-9,.-]/g, '');
+                                            if (v.includes('.') && v.includes(',')) v = v.replace(/\./g, '').replace(',', '.');
+                                            else if (v.includes(',')) v = v.replace(',', '.');
+                                            return Number(v) || 0;
+                                        };
+                                        const parsedTon = safeParseFloat(op.tonelagem);
+                                        const check = (op.status === 'closed' || (parsedTon > 0 && op.hora_saida)) ? 'PASS' : 'FAIL';
+
+                                        return (
+                                            <tr key={op.id} style={{ borderBottom: '1px solid #e2e8f0' }}>
+                                                <td style={{ padding: '4px' }}>{op.date}</td>
+                                                <td style={{ padding: '4px' }}>{op.shift}</td>
+                                                <td style={{ padding: '4px' }}>{op.tonelagem}</td>
+                                                <td style={{ padding: '4px' }}>{parsedTon}</td>
+                                                <td style={{ padding: '4px' }}>{op.hora_saida}</td>
+                                                <td style={{ padding: '4px', color: check === 'PASS' ? 'green' : 'red', fontWeight: 'bold' }}>{check}</td>
+                                            </tr>
+                                        );
+                                    })}
+                                </tbody>
+                            </table>
+                        </div>
+
+                        {/* ERROR DISPLAY */}
                         <div style={{ background: '#f8fafc', padding: '20px', borderRadius: '12px', border: '1px solid #e2e8f0' }}>
                             <div style={{ display: 'flex', alignItems: 'center', marginBottom: '10px' }}>
                                 <h4 style={{ margin: 0, fontSize: '14px', color: '#475569' }}>Insights IA (Machine Learning)</h4>

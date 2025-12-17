@@ -35,7 +35,7 @@ export function Menu() {
           { to: "/", label: "Início" },
           { to: "/pdca/novo", label: "Novo PDCA" },
           { to: "/dashboard", label: "Dashboard" },
-          { to: "/historico", label: "Histórico" },
+          { to: "/banco-de-dados", label: "Banco de Dados" },
           { to: "/cadastro", label: "Cadastros" },
           { to: "/operacoes", label: "Diário Op." },
           { to: "/diario", label: "Espelho Op." },

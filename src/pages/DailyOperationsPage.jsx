@@ -1,3 +1,4 @@
+import { useLocation } from 'react-router-dom';
 import React, { useState, useEffect, useMemo } from 'react';
 import {
     doc,
@@ -49,11 +50,16 @@ const SECTORS_CONFIG = [
 
 // --- NEW COMPONENTS ---
 const RoutineStatusCards = ({ dailyData, targets, currentShift }) => {
-    // 1. HEADCOUNT
+    // 1. HEADCOUNT & BREAKDOWN
     let totalPresent = 0;
     let totalMeta = 0;
+    let totalSick = 0;
+    let totalVacation = 0;
+    let totalAbsent = 0;
+    let totalAway = 0;
+    let totalVacancies = 0; // NEW: Structural vacancies
 
-    // Iterate sectors to sum Meta vs Present
+    // Iterate sectors to sum counts
     SECTORS_CONFIG.forEach(sec => {
         const meta = targets[sec.key] || 0;
         totalMeta += meta;
@@ -61,61 +67,76 @@ const RoutineStatusCards = ({ dailyData, targets, currentShift }) => {
         const logEntries = Object.entries(dailyData.attendance_log || {})
             .filter(([_, entry]) => entry.sector === sec.key);
 
-        const present = logEntries.reduce((acc, [_, entry]) => {
-            return (!entry.status || entry.status === 'present') ? acc + 1 : acc;
-        }, 0);
-        totalPresent += present;
+        const currentStaffCount = logEntries.length;
+        const deficit = Math.max(0, meta - currentStaffCount);
+        totalVacancies += deficit;
+
+        logEntries.forEach(([_, entry]) => {
+            const s = entry.status || 'present';
+            if (s === 'present') totalPresent++;
+            else if (s === 'sick') totalSick++;
+            else if (s === 'vacation') totalVacation++;
+            else if (s === 'absent') totalAbsent++;
+            else if (s === 'away') totalAway++;
+        });
     });
 
+    // Gap calculation (vs Meta)
+    // "Real" force is distinct from "Present". Usually Headcount = Present.
+    // Gap depends on how we define it. (Meta - Present)
     const gap = totalPresent - totalMeta;
     const isDeficit = gap < 0;
-    const isSurplus = gap > 0;
 
     return (
-        <div style={{ marginBottom: '20px', background: 'white', padding: '20px', borderRadius: '16px', border: '1px solid #e2e8f0', boxShadow: '0 4px 6px -1px rgba(0,0,0,0.05)' }}>
-            <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: '15px' }}>
-                <h3 style={{ margin: 0, fontSize: '16px', fontWeight: 700, color: '#334155' }}>Analise de Turno - {currentShift.toUpperCase()}</h3>
+        <div style={{ marginBottom: '20px', background: 'white', padding: '15px', borderRadius: '12px', border: '1px solid #e2e8f0' }}>
+            <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: '10px' }}>
+                <h3 style={{ margin: 0, fontSize: '14px', fontWeight: 700, color: '#334155', textTransform: 'uppercase', letterSpacing: '0.5px' }}>
+                    Resumo Operacional
+                </h3>
             </div>
 
-            <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fit, minmax(140px, 1fr))', gap: '15px' }}>
-                {/* CARD 1: HEADCOUNT TOTAL */}
-                <div style={{ background: '#f8fafc', padding: '15px', borderRadius: '12px', border: '1px solid #e2e8f0', minWidth: '150px' }}>
-                    <div style={{ fontSize: '11px', fontWeight: 'bold', color: '#64748b', textTransform: 'uppercase', marginBottom: '8px' }}>
-                        Equipe Total
-                    </div>
-                    <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'flex-end' }}>
-                        <div>
-                            <span style={{ fontSize: '24px', fontWeight: 800, color: '#1e293b' }}>{totalPresent}</span>
-                            <span style={{ fontSize: '11px', color: '#94a3b8', marginLeft: '4px' }}>/ {totalMeta} Meta</span>
-                        </div>
-                        {isDeficit ? (
-                            <div style={{ fontSize: '12px', fontWeight: 'bold', color: '#ef4444', background: '#fee2e2', padding: '2px 6px', borderRadius: '4px' }}>
-                                {gap} Pessoas
-                            </div>
-                        ) : isSurplus ? (
-                            <div style={{ fontSize: '12px', fontWeight: 'bold', color: '#f59e0b', background: '#fef3c7', padding: '2px 6px', borderRadius: '4px' }}>
-                                +{gap} Extra
-                            </div>
-                        ) : (
-                            <div style={{ fontSize: '12px', fontWeight: 'bold', color: '#10b981', background: '#d1fae5', padding: '2px 6px', borderRadius: '4px' }}>
-                                Ok
-                            </div>
-                        )}
+            <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fit, minmax(110px, 1fr))', gap: '10px' }}>
+                {/* CARD 1: PRESENTES (MAIN) */}
+                <div style={{ background: '#f0f9ff', padding: '12px', borderRadius: '8px', border: '1px solid #e0f2fe' }}>
+                    <div style={{ fontSize: '10px', fontWeight: 'bold', color: '#0369a1', textTransform: 'uppercase' }}>Presentes / Ideal</div>
+                    <div style={{ fontSize: '20px', fontWeight: 800, color: '#0c4a6e' }}>
+                        {totalPresent} <span style={{ fontSize: '11px', color: '#0ea5e9', fontWeight: 600 }}>/ {totalMeta}</span>
                     </div>
                 </div>
 
-                {/* CARD 2: TONELAGEM PREVIA */}
-                <div style={{ background: '#f8fafc', padding: '15px', borderRadius: '12px', border: '1px solid #e2e8f0', minWidth: '150px' }}>
-                    <div style={{ fontSize: '11px', fontWeight: 'bold', color: '#64748b', textTransform: 'uppercase', marginBottom: '8px' }}>
-                        Produção (Kg)
+                {/* CARD 2: CONTRATAR (NEW) */}
+                <div style={{ background: totalVacancies > 0 ? '#fef2f2' : '#f8fafc', padding: '12px', borderRadius: '8px', border: `1px solid ${totalVacancies > 0 ? '#fee2e2' : '#e2e8f0'}` }}>
+                    <div style={{ fontSize: '10px', fontWeight: 'bold', color: totalVacancies > 0 ? '#b91c1c' : '#64748b', textTransform: 'uppercase' }}>
+                        {totalVacancies > 0 ? 'Contratar' : 'Vagas'}
                     </div>
-                    <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'flex-end' }}>
-                        <div>
-                            <span style={{ fontSize: '24px', fontWeight: 800, color: '#1e293b' }}>
-                                {dailyData.tonelagem ? Number(dailyData.tonelagem).toLocaleString() : '0'}
-                            </span>
-                            <span style={{ fontSize: '11px', color: '#94a3b8', marginLeft: '4px' }}>kg</span>
-                        </div>
+                    <div style={{ fontSize: '20px', fontWeight: 800, color: totalVacancies > 0 ? '#991b1b' : '#94a3b8' }}>
+                        {totalVacancies > 0 ? `-${totalVacancies}` : '0'}
+                    </div>
+                </div>
+
+                {/* CARD 3: FALTAS */}
+                <div style={{ background: '#fff1f2', padding: '12px', borderRadius: '8px', border: '1px solid #ffe4e6' }}>
+                    <div style={{ fontSize: '10px', fontWeight: 'bold', color: '#be123c', textTransform: 'uppercase' }}>Faltas</div>
+                    <div style={{ fontSize: '20px', fontWeight: 800, color: '#9f1239' }}>{totalAbsent}</div>
+                </div>
+
+                {/* CARD 4: FÉRIAS */}
+                <div style={{ background: '#fffbeb', padding: '12px', borderRadius: '8px', border: '1px solid #fef3c7' }}>
+                    <div style={{ fontSize: '10px', fontWeight: 'bold', color: '#b45309', textTransform: 'uppercase' }}>Férias</div>
+                    <div style={{ fontSize: '20px', fontWeight: 800, color: '#92400e' }}>{totalVacation}</div>
+                </div>
+
+                {/* CARD 5: ATESTADOS */}
+                <div style={{ background: '#f0fdf4', padding: '12px', borderRadius: '8px', border: '1px solid #dcfce7' }}>
+                    <div style={{ fontSize: '10px', fontWeight: 'bold', color: '#15803d', textTransform: 'uppercase' }}>Atestados</div>
+                    <div style={{ fontSize: '20px', fontWeight: 800, color: '#166534' }}>{totalSick}</div>
+                </div>
+
+                {/* CARD 6: PRODUÇÃO */}
+                <div style={{ background: '#f8fafc', padding: '12px', borderRadius: '8px', border: '1px solid #e2e8f0' }}>
+                    <div style={{ fontSize: '10px', fontWeight: 'bold', color: '#64748b', textTransform: 'uppercase' }}>Produção</div>
+                    <div style={{ fontSize: '20px', fontWeight: 800, color: '#334155' }}>
+                        {dailyData.tonelagem ? Number(dailyData.tonelagem).toLocaleString() : '0'} <span style={{ fontSize: '10px' }}>kg</span>
                     </div>
                 </div>
             </div>
@@ -130,41 +151,91 @@ export function DailyOperationsPage() {
     body { background: var(--bg-page); font-family: 'Inter', sans-serif; color: var(--text-body); }
     .page-container { max-width: 1200px; margin: 0 auto; padding: 20px; }
     
-    .header-bar { display: flex; justify-content: space-between; align-items: center; margin-bottom: 30px; }
-    .header-title h1 { font-size: 24px; font-weight: 800; color: var(--text-head); margin: 0;letter-spacing: -0.5px; }
+    .header-bar { display: flex; justify-content: space-between; align-items: center; margin-bottom: 20px; }
+    .header-title h1 { font-size: 20px; font-weight: 800; color: var(--text-head); margin: 0; letter-spacing: -0.5px; }
     
     /* CARDS */
-    .section-title { font-size: 14px; font-weight: 700; text-transform: uppercase; letter-spacing: 0.8px; color: #94a3b8; margin-bottom: 15px; display: flex; align-items: center; gap: 8px; }
+    .section-title { font-size: 13px; font-weight: 700; text-transform: uppercase; letter-spacing: 0.5px; color: #94a3b8; margin-bottom: 10px; display: flex; align-items: center; gap: 8px; margin-top: 30px; }
     
-    .staff-grid { display: grid; grid-template-columns: repeat(auto-fill, minmax(280px, 1fr)); gap: 15px; margin-bottom: 40px; }
-    .staff-card { cursor: pointer; background: var(--card-bg); border: 1px solid var(--border); border-radius: 12px; padding: 15px; display: flex; justify-content: space-between; align-items: center; transition: all 0.2s; box-shadow: 0 1px 3px rgba(0,0,0,0.05); }
-    .staff-card:hover { transform: translateY(-2px); box-shadow: 0 4px 6px rgba(0,0,0,0.05); border-color: var(--primary); }
-    .staff-info h3 { margin: 0; font-size: 15px; font-weight: 600; color: var(--text-head); }
-    .staff-meta { font-size: 12px; color: #94a3b8; }
+    .staff-grid { display: grid; grid-template-columns: repeat(auto-fill, minmax(260px, 1fr)); gap: 12px; margin-bottom: 20px; }
+    .staff-card { cursor: pointer; background: var(--card-bg); border: 1px solid var(--border); border-radius: 10px; padding: 12px 15px; display: flex; justify-content: space-between; align-items: center; transition: all 0.2s; box-shadow: 0 1px 2px rgba(0,0,0,0.05); }
+    .staff-card:hover { transform: translateY(-1px); box-shadow: 0 4px 6px rgba(0,0,0,0.05); border-color: var(--primary); }
+    .staff-info h3 { margin: 0; font-size: 14px; font-weight: 600; color: var(--text-head); }
+    .staff-meta { font-size: 11px; color: #94a3b8; }
     
-    .staff-input-group { display: flex; flex-direction: column; align-items: flex-end; gap: 5px; }
-    .staff-val { font-size: 18px; font-weight: 700; color: var(--text-head); }
+    .staff-input-group { display: flex; flex-direction: column; align-items: flex-end; gap: 2px; }
+    .staff-val { font-size: 16px; font-weight: 700; color: var(--text-head); }
     
-    .logistics-container { background: white; border-radius: 16px; padding: 25px; border: 1px solid var(--border); margin-bottom: 40px; }
-    .logistics-grid { display: grid; grid-template-columns: repeat(3, 1fr); gap: 30px; }
-    .kpi-box { display: flex; flex-direction: column; gap: 8px; }
-    .kpi-label { font-size: 13px; font-weight: 600; color: #64748b; }
-    .kpi-input-lg { font-size: 20px; font-weight: 700; width: 100%; border: none; border-bottom: 2px solid var(--border); padding: 5px 0; color: var(--text-head); outline: none; transition: border 0.2s; background: transparent; }
-    .kpi-input-lg:focus { border-color: var(--primary); }
-    .kpi-target { font-size: 12px; color: #94a3b8; font-weight: 500; }
-    
-    .checkout-container { background: #1e293b; color: white; border-radius: 16px; padding: 30px; margin-bottom: 20px; }
-    .leader-report-area { width: 100%; background: rgba(255,255,255,0.05); border: 1px solid rgba(255,255,255,0.1); border-radius: 12px; color: white; padding: 15px; font-family: inherit; resize: vertical; min-height: 100px; }
-    .btn-finish { background: #16a34a; color: #ffffff; border: none; width: 100%; padding: 15px; border-radius: 12px; font-weight: 800; font-size: 16px; cursor: pointer; box-shadow: 0 4px 6px rgba(0,0,0,0.1); transition: all 0.2s; letter-spacing: 0.5px; }
-    .btn-finish:hover { background: #15803d; }
+    /* UNIFIED CLOSING SECTION */
+    .closing-section {
+        background: white;
+        border: 1px solid #e2e8f0;
+        border-radius: 16px;
+        padding: 20px;
+        margin-bottom: 40px;
+        display: grid;
+        grid-template-columns: 1fr 1fr 1fr 1.5fr; /* Encerramento wider */
+        gap: 20px;
+        align-items: stretch;
+    }
+    @media (max-width: 900px) { .closing-section { grid-template-columns: 1fr 1fr; } }
+    @media (max-width: 600px) { .closing-section { grid-template-columns: 1fr; } }
+
+    .closing-box { display: flex; flex-direction: column; gap: 8px; }
+    .kpi-label-sm { font-size: 12px; font-weight: 700; color: #64748b; text-transform: uppercase; letter-spacing: 0.5px; }
+
+    .kpi-input-box {
+        background: #f8fafc;
+        border: 1px solid #e2e8f0; 
+        border-radius: 8px;
+        padding: 12px;
+        font-size: 16px;
+        font-weight: 600;
+        color: #1e293b;
+        width: 100%;
+        outline: none;
+        transition: all 0.2s;
+    }
+    .kpi-input-box:focus { border-color: #3b82f6; box-shadow: 0 0 0 3px rgba(59,130,246,0.1); background: white; }
+
+    .report-area-sm {
+        flex: 1;
+        min-height: 80px;
+        border: 1px solid #e2e8f0;
+        border-radius: 8px;
+        padding: 10px;
+        font-size: 13px;
+        resize: none;
+        background: #f8fafc;
+        font-family: inherit;
+        color: #334155;
+    }
+    .report-area-sm:focus { background: white; border-color: #3b82f6; outline: none; }
+
+    .btn-finish-sm {
+        background: #16a34a;
+        color: white;
+        border: none;
+        width: 100%;
+        padding: 12px;
+        border-radius: 8px;
+        font-weight: 700;
+        font-size: 13px;
+        cursor: pointer;
+        text-transform: uppercase;
+        letter-spacing: 0.5px;
+        transition: all 0.2s;
+        margin-top: auto;
+    }
+    .btn-finish-sm:hover { background: #15803d; transform: translateY(-1px); }
     
     .btn-routine-save {
         position: fixed; bottom: 30px; right: 30px; 
         background: #3b82f6; color: white; 
-        padding: 15px 25px; border-radius: 50px; 
+        padding: 12px 20px; border-radius: 50px; 
         box-shadow: 0 10px 25px -5px rgba(59, 130, 246, 0.5); 
-        border: none; font-weight: 700; font-size: 16px; 
-        cursor: pointer; display: flex; align-items: center; gap: 10px; z-index: 100;
+        border: none; font-weight: 700; font-size: 14px; 
+        cursor: pointer; display: flex; align-items: center; gap: 8px; z-index: 100;
         transition: transform 0.2s;
     }
     .btn-routine-save:hover { transform: scale(1.05); }
@@ -211,8 +282,13 @@ export function DailyOperationsPage() {
 
     // --- STATES ---
     const [settingsModalOpen, setSettingsModalOpen] = useState(false);
-    const [currentShift, setCurrentShift] = useState('manha');
-    const [selectedDate, setSelectedDate] = useState(new Date().toISOString().split('T')[0]);
+    // --- ROUTER STATE (FOR EDIT MODE) ---
+    const location = useLocation();
+    const routerState = location.state || {};
+
+
+    const [currentShift, setCurrentShift] = useState(routerState.shift || 'manha');
+    const [selectedDate, setSelectedDate] = useState(routerState.date || new Date().toISOString().split('T')[0]);
     const [allTargets, setAllTargets] = useState({});
     const [closedReports, setClosedReports] = useState([]);
 
@@ -236,6 +312,57 @@ export function DailyOperationsPage() {
 
     const docId = `${selectedDate}_${currentShift}`;
 
+    // --- HELPERS ---
+    // Helper to find previous valid roster without demanding Index creation
+    const findPreviousRoster = async () => {
+        // Try up to 7 days back
+        let checkDate = new Date(selectedDate);
+        for (let i = 1; i <= 10; i++) {
+            checkDate.setDate(checkDate.getDate() - 1);
+            const dateStr = checkDate.toISOString().split('T')[0];
+            const prevDocId = `${dateStr}_${currentShift}`;
+
+            try {
+                const snap = await getDoc(doc(db, "daily_operations", prevDocId));
+                if (snap.exists()) {
+                    const data = snap.data();
+                    if (data.attendance_log && Object.keys(data.attendance_log).length > 0) {
+                        return { date: dateStr, data: data };
+                    }
+                }
+            } catch (e) { console.log("Skip day", dateStr); }
+        }
+        return null;
+    };
+
+    const importPreviousRoster = async (force = false) => {
+        // Only auto-import if the log is currently empty (to avoid overwriting work)
+        // OR if force is true (Manual button)
+        const isEmpty = Object.keys(dailyData.attendance_log || {}).length === 0;
+
+        if (isEmpty || force) {
+            const result = await findPreviousRoster();
+            if (result) {
+                if (force && !window.confirm(`Encontrei uma escala do dia ${result.date} com ${Object.keys(result.data.attendance_log).length} pessoas. Substituir a atual?`)) return;
+
+                // Reset statuses to 'present'
+                const newLog = {};
+                Object.entries(result.data.attendance_log).forEach(([id, entry]) => {
+                    newLog[id] = { ...entry, status: 'present' };
+                });
+
+                setDailyData(prev => ({
+                    ...prev,
+                    attendance_log: newLog,
+                    staff_real: {} // Clear absences
+                }));
+                if (force) alert("Escala importada com sucesso! Não esqueça de Salvar a rotina.");
+            } else {
+                if (force) alert("Nenhuma escala anterior encontrada nos últimos 10 dias.");
+            }
+        }
+    };
+
     // --- EFFECTS ---
     useEffect(() => {
         carregarMetas();
@@ -246,33 +373,13 @@ export function DailyOperationsPage() {
         setDailyData({
             staff_real: {}, attendance_log: {}, tonelagem: '', hora_chegada: '', hora_saida: '', relatorio_lider: '', rating: 0, status: 'open'
         });
+
         const unsub = onSnapshot(doc(db, "daily_operations", docId), async (docSnap) => {
             if (docSnap.exists()) {
                 setDailyData(prev => ({ ...prev, ...docSnap.data() }));
             } else {
-                // CARRY FORWARD LOGIC
-                try {
-                    const qPrev = query(
-                        collection(db, "daily_operations"),
-                        where("shift", "==", currentShift),
-                        where("date", "<", selectedDate),
-                        orderBy("date", "desc"),
-                        limit(1)
-                    );
-                    const querySnapshot = await getDocs(qPrev);
-                    if (!querySnapshot.empty) {
-                        const lastDoc = querySnapshot.docs[0].data();
-                        if (lastDoc.attendance_log) {
-                            setDailyData(prev => ({
-                                ...prev,
-                                attendance_log: lastDoc.attendance_log,
-                                staff_real: lastDoc.staff_real || {}
-                            }));
-                        }
-                    }
-                } catch (err) {
-                    console.error("Error carry forward:", err);
-                }
+                // NEW ENTRY: Auto-Import
+                importPreviousRoster(false);
             }
         });
         return () => unsub();
@@ -458,6 +565,7 @@ export function DailyOperationsPage() {
         });
 
         // Use Current Shift if available, otherwise show all sector employees (fallback)
+        // FORCE FALLBACK if currentShiftEmp is empty, don't leave it empty.
         setSectorEmployees(currentShiftEmp.length > 0 ? currentShiftEmp : initial);
     };
 
@@ -478,6 +586,7 @@ export function DailyOperationsPage() {
         });
 
         // 2. AVAILABLE: 
+        // If searching, search in ALL DB. If not search, search in pre-filtered Sector Employees
         let pool = filterText ? allEmployeesDB : sectorEmployees;
 
         // Apply text filter if searching
@@ -511,7 +620,11 @@ export function DailyOperationsPage() {
     };
 
     const updateAttendanceLog = (matricula, status) => {
-        const newLogEntry = { status, sector: checkInSector };
+        // [FIX] Must save Name in the log for Reports to work efficiently without joining DB
+        const emp = allEmployeesDB.find(e => String(e.matricula) === String(matricula));
+        const nome = emp ? emp.nome : "Nome não encontrado";
+
+        const newLogEntry = { status, sector: checkInSector, nome: nome };
         const newLog = { ...dailyData.attendance_log, [matricula]: newLogEntry }; // Overwrite if exists, add if new
 
         const faltasCount = calculateFaltas(newLog);
@@ -544,7 +657,15 @@ export function DailyOperationsPage() {
                         </div>
                     </div>
                 </div>
-                <div className="header-actions">
+                <div className="header-actions" style={{ display: 'flex', gap: '10px' }}>
+                    <button
+                        className="btn-icon"
+                        onClick={() => importPreviousRoster(true)}
+                        title="Importar Escala Anterior"
+                        style={{ border: '1px solid #cbd5e1', background: 'white', padding: '8px 12px', borderRadius: '8px', cursor: 'pointer', display: 'flex', alignItems: 'center', gap: '5px', fontWeight: 600, color: '#475569' }}
+                    >
+                        📥 <span style={{ fontSize: '13px' }}>Importar Escala</span>
+                    </button>
                     <button className="btn-icon" onClick={() => setSettingsModalOpen(true)} title="Configurar Metas"><IconGear /></button>
                 </div>
             </div>
@@ -608,29 +729,53 @@ export function DailyOperationsPage() {
                 })}
             </div>
 
-            <div className="section-title">🚛 Bloco B: Logística Pesada</div>
-            <div className="logistics-container">
-                <div className="logistics-grid">
-                    <div className="kpi-box">
-                        <label className="kpi-label">Tonelagem</label>
-                        <input type="number" className="kpi-input-lg" value={dailyData.tonelagem} onChange={e => updateField('tonelagem', e.target.value)} />
-                    </div>
-                    <div className="kpi-box">
-                        <label className="kpi-label">Chegada</label>
-                        <input type="time" className="kpi-input-lg" value={dailyData.hora_chegada} onChange={e => updateField('hora_chegada', e.target.value)} />
-                    </div>
-                    <div className="kpi-box">
-                        <label className="kpi-label">Saída</label>
-                        <input type="time" className="kpi-input-lg" value={dailyData.hora_saida} onChange={e => updateField('hora_saida', e.target.value)} />
-                    </div>
+            <div className="section-title">🔒 Logística & Encerramento</div>
+            <div className="closing-section">
+                {/* 1. TONELAGEM */}
+                <div className="closing-box">
+                    <label className="kpi-label-sm">Tonelagem (Kg)</label>
+                    <input
+                        type="number"
+                        className="kpi-input-box"
+                        placeholder="0"
+                        value={dailyData.tonelagem}
+                        onChange={e => updateField('tonelagem', e.target.value)}
+                    />
                 </div>
-            </div>
 
-            <div className="section-title">⭐ Bloco C: Encerramento</div>
-            <div className="checkout-container">
-                <textarea className="leader-report-area" value={dailyData.relatorio_lider} onChange={e => updateField('relatorio_lider', e.target.value)} placeholder="Resumo do dia..." />
-                <div style={{ marginTop: '15px', display: 'flex', gap: '10px' }}>
-                    <button className="btn-finish" onClick={handleFinishDay}>ENCERRAR DIÁRIO</button>
+                {/* 2. CHEGADA */}
+                <div className="closing-box">
+                    <label className="kpi-label-sm">Início Op.</label>
+                    <input
+                        type="time"
+                        className="kpi-input-box"
+                        value={dailyData.hora_chegada}
+                        onChange={e => updateField('hora_chegada', e.target.value)}
+                    />
+                </div>
+
+                {/* 3. SAÍDA */}
+                <div className="closing-box">
+                    <label className="kpi-label-sm">Fim Op.</label>
+                    <input
+                        type="time"
+                        className="kpi-input-box"
+                        value={dailyData.hora_saida}
+                        onChange={e => updateField('hora_saida', e.target.value)}
+                    />
+                </div>
+
+                {/* 4. ENCERRAMENTO */}
+                <div className="closing-box">
+                    <textarea
+                        className="report-area-sm"
+                        value={dailyData.relatorio_lider}
+                        onChange={e => updateField('relatorio_lider', e.target.value)}
+                        placeholder="Resumo do dia / Ocorrências..."
+                    />
+                    <button className="btn-finish-sm" onClick={handleFinishDay}>
+                        Encerrar Diário
+                    </button>
                 </div>
             </div>
 
