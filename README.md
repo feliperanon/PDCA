@@ -2,91 +2,94 @@
 
 > **Plataforma de Inteligência Operacional & Gestão de Melhoria Contínua**
 
-Este projeto é uma solução "End-to-End" para gerenciamento de Centros de Distribuição (CDs) e Operações Logísticas. Ele centraliza o registro de rotinas, controle de equipe, análise de KPIs e o ciclo de melhoria contínua (PDCA) em uma única interface moderna e preditiva.
+Este projeto é uma solução "End-to-End" para gerenciamento de Centros de Distribuição (CDs) e Operações Logísticas. Ele combina o rigor do método **PDCA** com **Inteligência Artificial (IA)** e **Gamificação** para engajar equipes e prevenir falhas.
 
 ---
 
-## 🏗️ Mapa da Aplicação
+## 🗺️ Mapa Completo da Aplicação
 
-### 🔐 1. Autenticação & Acesso
-- **Login (`/login`)**: Acesso seguro via Firebase Authentication. Apenas usuários autorizados podem visualizar os dados sensíveis da operação.
-- **Cadastro (`/cadastro`)**: Módulo para registrar novos gestores ou líderes de turno no sistema.
+O sistema é composto por 10 módulos principais, cada um com uma função estratégica:
 
-### 🧠 2. Central de Inteligência (`/inteligencia`)
-*Dashboard Analítico Premium focado em Risco & Capacidade.*
-- **Fronteira de Capacidade ($T/C$ vs Tempo)**: Gráfico de dispersão avançado que relaciona a pressão de carga ($Ton/Pessoa$) com o horário de término real, permitindo identificar o "limite físico" da operação.
-- **Algoritmo de Risco**: Diagnóstico automático que classifica cada turno em:
-  - 🟢 **Alta Performance**: Fechamento antecipado com alta tonelagem.
-  - 🟡 **Sobrecarga**: Cumprimento da meta, mas com pressão excessiva sobre a equipe.
-  - 🔴 **Risco Crítico**: Atrasos sistêmicos por falta de mão de obra.
-- **Leitura Fria ($Trust Score$)**: Um KPI percentual que indica a confiabilidade da operação em fechar no horário meta (09:00).
+### 1. 🏠 Dashboard Principal (`HomePage`)
+*O centro de comando da operação.*
+- **Visão Geral**: Cards com contagem de projetos em cada etapa (Plan, Do, Check, Act).
+- **✨ Copiloto IA**: Campo de "texto livre" onde o usuário descreve um problema (ex: "Empilhadeira quebrou na expedição") e a IA estrutura automaticamente um PDCA completo (Causa Raiz, Meta, Plano de Ação).
+- **Status do Ciclo**: Listas rápidas dos projetos que precisam de atenção.
 
-### 📋 3. Diário Operacional (`/diario`)
-*Interface "Battle-Tested" para uso em chão de fábrica pelos líderes.*
-- **Espelho de Ponto Digital**: Gestão visual de presença por setores (Recebimento, Expedição, Câmara Fria, etc).
-- **Controle de Absenteísmo**: Registro rápido de Faltas, Atestados e Férias, impactando imediatamente os cálculos de capacidade.
-- **Logística Reversa**: Input de horários críticos (Chegada de Mercadoria, Término de Operação) e Tonelagem movimentada.
-- **Trava de Segurança (Read-Only)**: Após o encerramento do turno pelo líder, os dados são "congelados" para garantir a integridade histórica e auditoria.
-- **Avaliação 5 Estrelas**: Feedback qualitativo imediato sobre o "sentimento" do turno.
+### 2. 🎮 Diário de Operações (`OperationsLogPage`)
+*Registro de ocorrências com gamificação para engajamento.*
+- **Sistema de Vidas ❤️**: A operação começa o dia com 5 corações. Cada erro registrado remove meio coração. Se a saúde cair muito, o sistema entra em alerta "Coach Bad".
+- **Coach Virtual 🏆**: Um componente visual que parabeniza ("Excelente Trabalho!") ou alerta ("Atenção à Operação!") dependendo do desempenho do dia.
+- **Registro Rápido Inteligente**: O sistema categoriza automaticamente o texto digitado (ex: "Falta de luz" -> Categoria: Infraestrutura).
+- **Tags Rápidas**: Botões para marcar "Erro", "Ideia", "Alerta" com um clique.
 
-### � 4. Relatórios & Banco de Dados (`/relatorios`)
+### 3. 📋 Espelho Operacional (`DailyOperationsPage`)
+*Gestão rotineira de turno e equipe (Líderes).*
+- **Controle de Headcount**: Check-in/Check-out de funcionários por setor. Mostra visualmente o déficit de pessoas (ex: "Expedição: -2 Pessoas").
+- **Logística Reversa**: Input de horários críticos (Chegada Caminhão, Término) e Tonelagem.
+- **Avaliação 5 Estrelas ⭐**: O líder avalia a qualidade do turno ao encerrar.
+- **Trava de Segurança**: Turnos encerrados tornam-se "Read-Only" (Apenas Leitura) para auditoria.
+
+### 4. 🧠 Central de Inteligência (`AnalyticsDashboard`)
+*Dashboard Analítico para tomadas de decisão de alto nível.*
+- **Fronteira de Capacidade**: Gráfico de dispersão ($Ton/Pessoa$ vs Horário) que revela o limite físico da operação.
+- **Algoritmo de Risco**: Diagnóstico automático (🟢 Alta Performance, 🟡 Sobrecarga, 🔴 Risco Crítico).
+- **Metas Dinâmicas**: Comparativo visual entre Realizado vs Meta por setor.
+
+### 5. 🔄 Ciclo PDCA (`CreatePdcaPage` & `PdcaDetailPage`)
+*Gestão profunda de melhoria contínua.*
+- **Criação Manual ou via IA**: Formulários detalhados para estruturar a resolução de problemas.
+- **Gestão por Etapas**:
+    - **Plan**: Definição de metas e causas.
+    - **Do**: Registro de execução.
+    - **Check**: Comparativo Antes x Depois.
+    - **Act**: Padronização ou lições aprendidas.
+- **Cálculo de Prazos**: O sistema sugere datas alvo baseadas na prioridade (Crítica = 4 dias, Baixa = 7 dias).
+
+### 6. 📊 Relatórios & Histórico (`OperationsDatabasePage`)
 *O "Cérebro Histórico" da operação.*
-- **Listagem Cronológica**: Histórico completo de ocorrências ("Logs") e fechamentos de turno.
-- **Smart Ranking**: Tabela de liderança que classifica os turnos não apenas por velocidade, mas por Eficiência Real ($Kg/Pessoa/Hora$).
-- **Insights Curiosos**: Cards dinâmicos que destacam anomalias, como "Custo de Oportunidade" (horas perdidas por absenteísmo) e recordes de produtividade.
+- **Smart Ranking**: Classifica os turnos por eficiência real ($Kg/Pessoa/Hora$).
+- **Insights Curiosos**: Cards como "Custo de Oportunidade" e "Recordista do Mês".
+- **Banco de Dados**: Tabela completa pesquisável de todos os fechamentos anteriores.
 
-### 🔄 5. Gestão PDCA (`/pdca`, `/criar-pdca`, `/historico-pdca`)
-*Solução completa para tratamento de anomalias.*
-- **Dashboard Kanban**: Visualização de planos de ação por status (Planejamento, Execução, Verificação, Padronização).
-- **Detalhamento**: Página dedicada para cada projeto PDCA, com cronograma, equipe responsável e análise de causa raiz (5 Porquês).
-- **Histórico**: Arquivo morto de melhorias implementadas para consulta futura.
+### 7. 👥 Cadastros (`CadastroPage`)
+*Gestão de ativos e pessoas.*
+- **Gestão de Colaboradores**: CRUD completo de funcionários.
+- **Importação Excel 📤**: Funcionalidade para importar centenas de funcionários via planilha de uma só vez.
+- **Hub de Cadastros**: Ícones rápidos para Máquinas, Processos, Clientes e Fornecedores.
 
-### ⚙️ 6. Configurações (`/config`)
-- **Metas Operacionais**: Definição dinâmica do "Headcount Ideal" por setor, que alimenta os cálculos de déficit de equipe no Diário.
-
----
-
-## 🎨 Design System & UX (Mixpanel Style)
-
-O projeto adota uma filosofia de design **"Motion-First"** e **"Clean Data"**:
-
-- **Animações (Framer Motion feel)**: Entradas suaves (`Fade-In`, `Slide-Up`) em todas as páginas para uma sensação de app nativo.
-- **Componentes Premium**: Cards com sombras difusas (`box-shadow`), bordas arredondadas e efeitos de hover, inspirados em interfaces SaaS modernas (Linear, Mixpanel, Raycast).
-- **Tipografia**: Uso da família `Inter` com pesos calibrados para leitura densa de dados sem cansaço visual.
-- **Feedback Visual**: Cores semânticas claras (Verde/Alta Performance, Vermelho/Crítico) para tomada de decisão em milissegundos.
+### 8. 🔐 Acesso & Segurança
+- **Login (`LoginPage`)**: Autenticação via Firebase Auth.
+- **Controle de Sessão**: Redirecionamento automático e proteção de rotas.
 
 ---
 
-## 🛠️ Stack Tecnológico
+## 🎨 Design System (Mixpanel Style)
 
-| Camada | Tecnologia | Função |
-| :--- | :--- | :--- |
-| **Frontend** | React 18 + Vite | Core da aplicação (SPA) |
-| **Estilização** | CSS Modules + Keyframes | Design System proprietário e animações |
-| **Dados** | Recharts | Visualização de dados complexos (Scatter, Composed) |
-| **Backend** | Firebase Firestore | Banco de dados NoSQL em tempo real |
-| **Auth** | Firebase Auth | Gestão de identidade e segurança |
-| **Icons** | Lucide React | Iconografia consistente e leve |
+O projeto utiliza uma identidade visual proprietária:
+- **Motion-First**: Animações de entrada (`FadeIn`, `SlideUp`) em todas as páginas.
+- **Clean Data**: Uso de espaços em branco e tipografia `Inter` para facilitar a leitura de dados densos.
+- **Feedback Visual**: Cores semânticas (Verde = Meta Batida, Vermelho = Erro) consistentes em toda a aplicação.
 
 ---
 
-## 🚀 Como Executar
+## 🛠️ Tecnologias
 
-1. **Instale as dependências:**
-   ```bash
-   npm install
-   ```
-2. **Configure o ambiente:**
-   Crie um arquivo `.env` com suas credenciais do Firebase.
-3. **Rode o servidor local:**
-   ```bash
-   npm run dev
-   ```
-4. **Build para produção:**
-   ```bash
-   npm run build
-   ```
+- **Frontend**: React 18, Vite.
+- **Database**: Firebase Firestore (NoSQL).
+- **Design**: CSS Modules, Lucide Icons, Recharts.
+- **IA**: Integração com serviços de LLM para geração de PDCA.
 
 ---
 
-Desenvolvido para transformar dados brutos em **Decisões Operacionais Precisas**. �
+## 🚀 Como Rodar
+
+```bash
+# Instalar dependências
+npm install
+
+# Rodar servidor local
+npm run dev
+```
+
+Acesse: `http://localhost:5173`
