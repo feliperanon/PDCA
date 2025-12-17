@@ -1,69 +1,92 @@
 # 🚀 PDCA Operations Manager
 
-> Sistema de Gestão Operacional e Inteligência Preditiva para Centros de Distribuição.
+> **Plataforma de Inteligência Operacional & Gestão de Melhoria Contínua**
 
-Este projeto é uma plataforma completa para o ciclo **PDCA (Plan, Do, Check, Act)**, integrando controle diário de operações, gestão de absenteísmo e uma **Central de Inteligência** capaz de diagnosticar riscos operacionais com base em modelos matemáticos de capacidade.
+Este projeto é uma solução "End-to-End" para gerenciamento de Centros de Distribuição (CDs) e Operações Logísticas. Ele centraliza o registro de rotinas, controle de equipe, análise de KPIs e o ciclo de melhoria contínua (PDCA) em uma única interface moderna e preditiva.
 
 ---
 
-## ✨ Funcionalidades Principais
+## 🏗️ Mapa da Aplicação
 
-### 🧠 Central de Inteligência 1.0
-Dashboard analítico focado em **Risco & Capacidade**. Diferente de dashboards comuns, ele não apenas mostra dados, mas diagnostica a saúde da operação.
-- **Fronteira de Capacidade ($T/C$ vs Tempo)**: Gráfico de dispersão que relaciona a pressão de carga ($Ton/Pessoa$) com o horário de término.
-- **Leitura Fria (Confiabilidade)**: Calcula a probabilidade matemática da equipe encerrar o turno na meta (09:00).
-- **Diagnóstico Automático**: O sistema classifica cada turno como "Alta Performance", "Sobrecarga" ou "Risco Crítico" automaticamente.
+### 🔐 1. Autenticação & Acesso
+- **Login (`/login`)**: Acesso seguro via Firebase Authentication. Apenas usuários autorizados podem visualizar os dados sensíveis da operação.
+- **Cadastro (`/cadastro`)**: Módulo para registrar novos gestores ou líderes de turno no sistema.
 
-### 📋 Diário Operacional (Espelho)
-Interface para os líderes de turno registrarem a rotina em tempo real.
-- **Gestão de Equipe**: Check-in/Check-out de funcionários por setor (Recebimento, Expedição, etc.).
-- **Controle de Absenteísmo**: Registro visual de Faltas, Atestados e Férias.
-- **Segurança de Dados**: Turnos encerrados entram em modo **Read-Only** (apenas leitura) para garantir integridade histórica.
-- **Avaliação 5 Estrelas**: Feedback qualitativo rápido do líder sobre o turno.
+### 🧠 2. Central de Inteligência (`/inteligencia`)
+*Dashboard Analítico Premium focado em Risco & Capacidade.*
+- **Fronteira de Capacidade ($T/C$ vs Tempo)**: Gráfico de dispersão avançado que relaciona a pressão de carga ($Ton/Pessoa$) com o horário de término real, permitindo identificar o "limite físico" da operação.
+- **Algoritmo de Risco**: Diagnóstico automático que classifica cada turno em:
+  - 🟢 **Alta Performance**: Fechamento antecipado com alta tonelagem.
+  - 🟡 **Sobrecarga**: Cumprimento da meta, mas com pressão excessiva sobre a equipe.
+  - 🔴 **Risco Crítico**: Atrasos sistêmicos por falta de mão de obra.
+- **Leitura Fria ($Trust Score$)**: Um KPI percentual que indica a confiabilidade da operação em fechar no horário meta (09:00).
 
-### 📊 Relatórios & Insights
-Banco de dados histórico com análise inteligente.
-- **Smart Ranking**: Classifica os turnos por eficiência real ($Kg/Pessoa/Hora$).
-- **Insights Curiosos**: Destaca "Custo de Oportunidade" (quanto tempo foi perdido por faltas) e padrões de performance.
+### 📋 3. Diário Operacional (`/diario`)
+*Interface "Battle-Tested" para uso em chão de fábrica pelos líderes.*
+- **Espelho de Ponto Digital**: Gestão visual de presença por setores (Recebimento, Expedição, Câmara Fria, etc).
+- **Controle de Absenteísmo**: Registro rápido de Faltas, Atestados e Férias, impactando imediatamente os cálculos de capacidade.
+- **Logística Reversa**: Input de horários críticos (Chegada de Mercadoria, Término de Operação) e Tonelagem movimentada.
+- **Trava de Segurança (Read-Only)**: Após o encerramento do turno pelo líder, os dados são "congelados" para garantir a integridade histórica e auditoria.
+- **Avaliação 5 Estrelas**: Feedback qualitativo imediato sobre o "sentimento" do turno.
 
-### 🔄 Ciclo PDCA
-Ferramenta para criação e acompanhamento de planos de ação corretivos e preventivos baseados nas anomalias encontradas na operação.
+### � 4. Relatórios & Banco de Dados (`/relatorios`)
+*O "Cérebro Histórico" da operação.*
+- **Listagem Cronológica**: Histórico completo de ocorrências ("Logs") e fechamentos de turno.
+- **Smart Ranking**: Tabela de liderança que classifica os turnos não apenas por velocidade, mas por Eficiência Real ($Kg/Pessoa/Hora$).
+- **Insights Curiosos**: Cards dinâmicos que destacam anomalias, como "Custo de Oportunidade" (horas perdidas por absenteísmo) e recordes de produtividade.
+
+### 🔄 5. Gestão PDCA (`/pdca`, `/criar-pdca`, `/historico-pdca`)
+*Solução completa para tratamento de anomalias.*
+- **Dashboard Kanban**: Visualização de planos de ação por status (Planejamento, Execução, Verificação, Padronização).
+- **Detalhamento**: Página dedicada para cada projeto PDCA, com cronograma, equipe responsável e análise de causa raiz (5 Porquês).
+- **Histórico**: Arquivo morto de melhorias implementadas para consulta futura.
+
+### ⚙️ 6. Configurações (`/config`)
+- **Metas Operacionais**: Definição dinâmica do "Headcount Ideal" por setor, que alimenta os cálculos de déficit de equipe no Diário.
 
 ---
 
 ## 🎨 Design System & UX (Mixpanel Style)
 
-O projeto utiliza um sistema de design proprietário focado em **Motion** e **Clareza**, inspirado em ferramentas de analytics premium (como Mixpanel/Amplitude).
+O projeto adota uma filosofia de design **"Motion-First"** e **"Clean Data"**:
 
-- **Visual "Clean"**: Tipografia Inter, hierarquia visual forte e uso estratégico de espaço em branco.
-- **Motion Design**: Animações de entrada (`Fade-In`, `Slide-Up`, `Scale`) para uma experiência fluida.
-- **Micro-interações**: Feedbacks visuais em hovers, cliques e transições de estado.
-- **Glassmorphism & Sombras**: Uso de camadas translúcidas e sombras difusas para profundidade (Depth).
+- **Animações (Framer Motion feel)**: Entradas suaves (`Fade-In`, `Slide-Up`) em todas as páginas para uma sensação de app nativo.
+- **Componentes Premium**: Cards com sombras difusas (`box-shadow`), bordas arredondadas e efeitos de hover, inspirados em interfaces SaaS modernas (Linear, Mixpanel, Raycast).
+- **Tipografia**: Uso da família `Inter` com pesos calibrados para leitura densa de dados sem cansaço visual.
+- **Feedback Visual**: Cores semânticas claras (Verde/Alta Performance, Vermelho/Crítico) para tomada de decisão em milissegundos.
 
 ---
 
-## 🛠️ Tecnologias Utilizadas
+## 🛠️ Stack Tecnológico
 
-- **Frontend**: React.js (Vite)
-- **Database**: Firebase Firestore (NoSQL)
-- **Charts**: Recharts (Customized)
-- **Styling**: CSS Modules + Global Design Tokens (Variables)
-- **Icons**: Lucide React / SVG Customizados
+| Camada | Tecnologia | Função |
+| :--- | :--- | :--- |
+| **Frontend** | React 18 + Vite | Core da aplicação (SPA) |
+| **Estilização** | CSS Modules + Keyframes | Design System proprietário e animações |
+| **Dados** | Recharts | Visualização de dados complexos (Scatter, Composed) |
+| **Backend** | Firebase Firestore | Banco de dados NoSQL em tempo real |
+| **Auth** | Firebase Auth | Gestão de identidade e segurança |
+| **Icons** | Lucide React | Iconografia consistente e leve |
 
 ---
 
 ## 🚀 Como Executar
 
-```bash
-# Instalar dependências
-npm install
-
-# Rodar servidor de desenvolvimento
-npm run dev
-```
-
-Acesse `http://localhost:5173` para visualizar a aplicação.
+1. **Instale as dependências:**
+   ```bash
+   npm install
+   ```
+2. **Configure o ambiente:**
+   Crie um arquivo `.env` com suas credenciais do Firebase.
+3. **Rode o servidor local:**
+   ```bash
+   npm run dev
+   ```
+4. **Build para produção:**
+   ```bash
+   npm run build
+   ```
 
 ---
 
-Desenvolvido para maximizar a eficiência operacional através de dados. 📈
+Desenvolvido para transformar dados brutos em **Decisões Operacionais Precisas**. �
