@@ -40,17 +40,27 @@ export function OperationsDatabasePage() {
     const [ops, setOps] = useState([]);
     const [loading, setLoading] = useState(true);
     const [error, setError] = useState("");
+    const [employeeCache, setEmployeeCache] = useState({}); // [NEW] Cache for name lookup
 
     // [NEW] Visualization Modal State
     const [vizModalOpen, setVizModalOpen] = useState(false);
     const [selectedVizOp, setSelectedVizOp] = useState(null);
 
-    // Load Data
+    // Load Data & Employees
     useEffect(() => {
         async function load() {
             setLoading(true);
             try {
-                // Reads from 'pdcas' which contains the finalized shifts (same as old History)
+                // 1. Load Employees for Legacy Support
+                const empSnap = await getDocs(collection(db, "employees"));
+                const cache = {};
+                empSnap.forEach(doc => {
+                    const d = doc.data();
+                    if (d.matricula) cache[String(d.matricula)] = d.nome || "Colaborador";
+                });
+                setEmployeeCache(cache);
+
+                // 2. Load Operations
                 const q = query(collection(db, "pdcas"), orderBy("criadoEm", "desc"));
                 const snap = await getDocs(q);
                 const docs = [];
@@ -158,8 +168,17 @@ export function OperationsDatabasePage() {
             totalAbsent += sectorAbsentees.length;
 
             // Absentees List
-            sectorAbsentees.forEach(([id, entry]) => {
-                absenteesList.push({ name: entry.name || id, sector: sec.label });
+            logEntries.forEach(([id, entry]) => {
+                if (['absent', 'sick', 'vacation', 'away'].includes(entry.status)) {
+                    // [NEW] Smart Name Lookup
+                    const solvedName = entry.nome || entry.name || employeeCache[String(id)] || `Colab. ${id}`;
+
+                    absenteesList.push({
+                        name: solvedName,
+                        sector: sec.label,
+                        status: entry.status
+                    });
+                }
             });
 
             const deficit = (sec.meta || 0) - presentCount;
@@ -169,25 +188,105 @@ export function OperationsDatabasePage() {
                 label: sec.label,
                 meta: sec.meta || 0,
                 present: presentCount,
-                absences: sectorAbsentees.length,
+                absences: sectorAbsentees.length, // [NOTE] Counts only 'unjustified' for deficit logic or all? Keeping 'absent' only for strict deficit.
                 status: deficit > 0 ? `VAGAS: -${deficit}` : 'OK',
-                isOk: deficit <= 0
+                isOk: deficit <= 0,
+                totalIssues: sectorAbsentees.length // For sorting top offender
             };
         });
+
+        // Sort sectors by issues for Top Offender Highlight
+        const topOffenderSector = [...sectorStats].sort((a, b) => b.totalIssues - a.totalIssues)[0];
 
         // Use pre-calculated ton from ops list
         const kgPerPerson = totalPresent > 0 ? (tonFormatted / totalPresent).toFixed(0) : 0;
 
-        // RANKING CALCULAION
-        const allTons = ops.map(o => o.tonelagem).sort((a, b) => b - a);
-        const rank = allTons.indexOf(op.tonelagem) + 1;
-        const record = allTons[0] || 0;
+        // [NEW] Efficiency (Kg / Person / Hour)
+        let efficiencyScore = 0;
+        let hoursDuration = 0;
+        let endH = 0;
+        if (dailyData.hora_saida) {
+            const [h, m] = dailyData.hora_saida.split(':').map(Number);
+            let startH = 7; // Default start
+            if (dailyData.hora_chegada) {
+                const [hc, mc] = dailyData.hora_chegada.split(':').map(Number);
+                startH = hc + (mc / 60);
+            }
+            endH = h + (m / 60);
+            hoursDuration = endH - startH;
+
+            if (hoursDuration > 0 && totalPresent > 0) {
+                efficiencyScore = (tonFormatted / (totalPresent * hoursDuration)).toFixed(1);
+            }
+        }
+
+        // [NEW] RANKING LOGIC (EFFICIENCY BASED)
+        const allStats = ops.map(o => {
+            const d = o.originalData.snapshot?.dailyData || {};
+            // Robust staff count
+            const sMap = d.staff_effective || d.staff_real || {};
+            // Count present staff (sum of values)
+            const staff = Object.values(sMap).reduce((a, v) => a + (Number(v) || 0), 0);
+            const t = Number(o.tonelagem) || 0;
+
+            let dur = 8;
+            if (d.hora_saida) {
+                const [hh, mm] = d.hora_saida.split(':').map(Number);
+                let sh = 7;
+                if (d.hora_chegada) { const [hc, mc] = d.hora_chegada.split(':').map(Number); sh = hc + (mc / 60); }
+                const eh = hh + (mm / 60);
+                dur = eh - sh;
+                if (dur <= 0) dur += 24;
+            }
+
+            const eff = (staff > 0 && dur > 0) ? t / (staff * dur) : 0;
+            // DEBUG: Log strange values
+            // if (eff > 100000) console.log('High Eff:', o.id, eff, t, staff, dur);
+            return { id: o.id, eff, ton: t };
+        }).sort((a, b) => b.eff - a.eff);
+
+        const rank = allStats.findIndex(x => x.id === op.id) + 1;
+        const bestOp = allStats[0] || {};
+        const isBestEff = rank === 1;
+
+        // Calculate Global Tonnage Record (not efficiency record)
+        const globalMaxTon = Math.max(...ops.map(o => Number(o.tonelagem) || 0));
+
+        // [NEW] INSIGHTS GENERATOR
+        const insights = [];
+
+        // 1. Assiduidade
+        const perfectAttendance = sectorStats.filter(s => s.absences === 0 && s.present > 0);
+        if (perfectAttendance.length > 0) {
+            const names = perfectAttendance.map(s => s.label).join(', ');
+            insights.push(`👏 ${perfectAttendance.length} setores com 100% de assiduidade (${names}).`);
+        }
+
+        // 2. Tempo vs Equipe
+        if (hoursDuration > 0 && totalVacancies > 0) {
+            let potentialGainPerc = 0;
+            if (totalPresent > 0) {
+                // Gain = (Vacancies / (Existing + Vacancies))
+                potentialGainPerc = (totalVacancies / (totalPresent + totalVacancies)) * 100;
+                if (potentialGainPerc > 5) {
+                    insights.push(`📉 Equipe incompleta (${totalPresent}/${totalPresent + totalVacancies}) reduziu a capacidade teórica em ~${potentialGainPerc.toFixed(0)}%.`);
+                }
+            } else {
+                insights.push(`🛑 Operação realizada sem equipe registrada (Falha de Dados).`);
+            }
+        }
+
+        // 3. Early Finish Highlight (Target: 9h for trucks leaving)
+        if (endH > 0 && endH < 9 && tonFormatted > 20000) {
+            insights.push(`🚀 Alta performance: Volume alto entregue antes das 09h!`);
+        }
 
         return {
             totalPresent, totalAbsent, totalVacancies, totalMeta,
             absenteesList, ton: tonFormatted, kgPerPerson,
-            dailyData, sectorStats,
-            rank, record
+            dailyData, sectorStats, topOffenderSector,
+            rank, record: globalMaxTon, bestEff: bestOp.eff,
+            efficiencyScore, hoursDuration, insights, isBestEff
         };
     };
 
@@ -195,8 +294,8 @@ export function OperationsDatabasePage() {
         <div className="page database-page" style={{ padding: '20px' }}>
             <header style={{ marginBottom: '20px', display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
                 <div>
-                    <h1 style={{ fontSize: '24px', fontWeight: 'bold', color: '#1e293b' }}>Banco de Dados de Operações</h1>
-                    <p style={{ color: '#64748b' }}>Repositório central de turnos finalizados.</p>
+                    <h1 style={{ fontSize: '24px', fontWeight: 'bold', color: '#1e293b' }}>Relatórios de Turno</h1>
+                    <p style={{ color: '#64748b' }}>Histórico detalhado de operações finalizadas.</p>
                 </div>
                 <div>
                     {/* Future Actions like Export CSV could go here */}
@@ -329,11 +428,11 @@ export function OperationsDatabasePage() {
                                     {/* KEY METRICS */}
                                     <div className="r-grid-4">
                                         <div className="r-metric-box">
-                                            <span className="r-metric-val" style={{ color: '#3b82f6' }}>{Number(stats.ton).toLocaleString()} <span style={{ fontSize: '12px' }}>kg</span></span>
+                                            <span className="r-metric-val" style={{ color: '#3b82f6' }}>{Number(stats.ton).toLocaleString('pt-BR')} <span style={{ fontSize: '12px' }}>kg</span></span>
                                             <span className="r-metric-lbl">Produção Total</span>
                                         </div>
                                         <div className="r-metric-box">
-                                            <span className="r-metric-val" style={{ color: '#0f172a' }}>{stats.kgPerPerson} <span style={{ fontSize: '12px' }}>kg</span></span>
+                                            <span className="r-metric-val" style={{ color: '#0f172a' }}>{Number(stats.kgPerPerson).toLocaleString('pt-BR')} <span style={{ fontSize: '12px' }}>kg</span></span>
                                             <span className="r-metric-lbl">Produtivo / Pessoa</span>
                                         </div>
                                         <div className="r-metric-box">
@@ -409,19 +508,34 @@ export function OperationsDatabasePage() {
                                         {/* RIGHT: INSIGHTS & REPORT */}
                                         <div style={{ display: 'flex', flexDirection: 'column', gap: '15px' }}>
                                             {/* RANKING CARD */}
-                                            <div className="r-card" style={{ background: '#fdf4ff', borderColor: '#f0abfc' }}>
-                                                <div className="r-section-title" style={{ borderLeftColor: '#d946ef', color: '#86198f' }}>✨ Análise de Performance</div>
+                                            {/* RANKING CARD */}
+                                            <div className="r-card" style={{ background: stats.isBestEff ? '#ecfccb' : '#fdf4ff', borderColor: stats.isBestEff ? '#a3e635' : '#f0abfc' }}>
+                                                <div className="r-section-title" style={{ borderLeftColor: stats.isBestEff ? '#65a30d' : '#d946ef', color: stats.isBestEff ? '#3f6212' : '#86198f' }}>✨ Análise de Performance</div>
                                                 <div style={{ display: 'flex', alignItems: 'center', gap: '15px' }}>
                                                     <div style={{ textAlign: 'center' }}>
-                                                        <span style={{ display: 'block', fontSize: '24px', fontWeight: '800', color: '#d946ef' }}>#{stats.rank}</span>
-                                                        <span style={{ fontSize: '9px', color: '#a21caf', textTransform: 'uppercase' }}>Ranking</span>
+                                                        <span style={{ display: 'block', fontSize: '24px', fontWeight: '800', color: stats.isBestEff ? '#4d7c0f' : '#d946ef' }}>#{stats.rank}</span>
+                                                        <span style={{ fontSize: '9px', color: stats.isBestEff ? '#365314' : '#a21caf', textTransform: 'uppercase' }}>Ranking</span>
                                                     </div>
-                                                    <div style={{ fontSize: '11px', color: '#701a75' }}>
-                                                        Esta foi a <b>{stats.rank}ª melhor operação</b> registrada.
-                                                        <br />Recorde atual: <b>{Number(stats.record).toLocaleString()} kg</b>.
+                                                    <div style={{ fontSize: '11px', color: stats.isBestEff ? '#365314' : '#701a75' }}>
+                                                        {stats.rank === 1 ? '🥇 Melhor eficiência registrada!' : `Esta foi a ${stats.rank}ª operação mais eficiente.`}
+                                                        <br />
+                                                        <br />
+                                                        <span style={{ opacity: 0.8 }}>Score: {Number(stats.efficiencyScore).toLocaleString('pt-BR', { maximumFractionDigits: 0 })} pts (Recorde: {Number(stats.bestEff).toLocaleString('pt-BR', { maximumFractionDigits: 0 })})</span>
                                                     </div>
                                                 </div>
                                             </div>
+
+                                            {/* [NEW] INSIGHTS BOX */}
+                                            {stats.insights.length > 0 && (
+                                                <div className="r-card" style={{ background: '#f0f9ff', borderColor: '#bae6fd' }}>
+                                                    <div className="r-section-title" style={{ borderLeftColor: '#0ea5e9' }}>💡 Insights Operacionais</div>
+                                                    <ul style={{ paddingLeft: '15px', margin: '5px 0', fontSize: '11px', color: '#334155' }}>
+                                                        {stats.insights.map((ins, i) => <li key={i} style={{ marginBottom: '4px' }}>{ins}</li>)}
+                                                    </ul>
+                                                </div>
+                                            )}
+
+
 
                                             {/* LEADER REPORT */}
                                             <div className="r-card">
@@ -434,21 +548,44 @@ export function OperationsDatabasePage() {
                                     </div>
 
                                     {/* BOTTOM: ABSENCES */}
+                                    {/* BOTTOM: ABSENCES & SECTOR INFO */}
                                     <div className="r-card" style={{ marginBottom: '0' }}>
-                                        <div className="r-section-title" style={{ borderLeftColor: '#f59e0b' }}>⚠️ Detalhamento de Ausências</div>
+                                        <div className="r-section-title" style={{ borderLeftColor: '#f59e0b', display: 'flex', justifyContent: 'space-between' }}>
+                                            <span>⚠️ Detalhamento de Ausências</span>
+                                            {stats.topOffenderSector && stats.topOffenderSector.totalIssues > 0 && (
+                                                <span style={{ fontSize: '10px', background: '#fee2e2', color: '#b91c1c', padding: '2px 6px', borderRadius: '4px' }}>
+                                                    Setor Crítico: {stats.topOffenderSector.label}
+                                                </span>
+                                            )}
+                                        </div>
                                         {stats.absenteesList.length > 0 ? (
                                             <div style={{ marginBottom: '8px' }}>
-                                                <div style={{ color: '#ef4444', fontSize: '10px', fontWeight: '700', textTransform: 'uppercase' }}>Faltas Injustificadas ({stats.totalAbsent})</div>
-                                                <div style={{ fontSize: '11px', color: '#475569', lineHeight: '1.4' }}>
-                                                    {stats.absenteesList.map((p, idx) => (
-                                                        <span key={idx} style={{ display: 'inline-block', marginRight: '10px' }}>
-                                                            • {p.name} <span style={{ opacity: 0.6, fontSize: '9px' }}>({p.sector})</span>
-                                                        </span>
-                                                    ))}
-                                                </div>
+                                                {/* Group by Type */}
+                                                {['absent', 'sick', 'vacation'].map(type => {
+                                                    const list = stats.absenteesList.filter(a => a.status === type);
+                                                    if (list.length === 0) return null;
+
+                                                    const label = type === 'absent' ? 'Faltas Injustificadas' : type === 'sick' ? 'Atestados Médicos' : 'Férias';
+                                                    const color = type === 'absent' ? '#ef4444' : type === 'sick' ? '#3b82f6' : '#eab308';
+
+                                                    return (
+                                                        <div key={type} style={{ marginBottom: '10px' }}>
+                                                            <div style={{ color: color, fontSize: '10px', fontWeight: '700', textTransform: 'uppercase', marginBottom: '4px' }}>
+                                                                {label} ({list.length})
+                                                            </div>
+                                                            <div style={{ fontSize: '11px', color: '#475569', lineHeight: '1.4', display: 'flex', flexWrap: 'wrap', gap: '8px' }}>
+                                                                {list.map((p, idx) => (
+                                                                    <span key={idx} style={{ background: '#f8fafc', padding: '2px 6px', borderRadius: '4px', border: '1px solid #e2e8f0' }}>
+                                                                        • <b>{p.name}</b> <span style={{ opacity: 0.7, fontSize: '9px' }}>({p.sector})</span>
+                                                                    </span>
+                                                                ))}
+                                                            </div>
+                                                        </div>
+                                                    );
+                                                })}
                                             </div>
                                         ) : (
-                                            <div style={{ fontSize: '11px', color: '#166534' }}>Nenhuma falta registrada. Equipe completa.</div>
+                                            <div style={{ fontSize: '11px', color: '#166534' }}>Nenhuma ausência registrada. Equipe completa.</div>
                                         )}
                                     </div>
 

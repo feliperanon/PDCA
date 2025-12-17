@@ -91,7 +91,7 @@ export default function ReactApp() {
           />
 
           <Route
-            path="/banco-de-dados"
+            path="/relatorios"
             element={
               <RequireAuth>
                 <OperationsDatabasePage />

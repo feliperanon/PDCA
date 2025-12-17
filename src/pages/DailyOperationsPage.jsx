@@ -146,57 +146,58 @@ const RoutineStatusCards = ({ dailyData, targets, currentShift }) => {
 
 export function DailyOperationsPage() {
     // --- CSS ---
+    // --- CSS ---
     const styles = `
-    :root { --primary: #3b82f6; --bg-page: #f8fafc; --card-bg: #ffffff; --text-head: #1e293b; --text-body: #475569; --border: #e2e8f0; --safe: #dcfce7; --safe-text: #166534; --danger: #fee2e2; --danger-text: #991b1b; }
-    body { background: var(--bg-page); font-family: 'Inter', sans-serif; color: var(--text-body); }
+    :root { --primary: #3b82f6; --bg-page: #f8fafc; --card-bg: #ffffff; --text-head: #334155; --text-body: #64748b; --border: #e2e8f0; --safe: #dcfce7; --safe-text: #166534; --danger: #fee2e2; --danger-text: #991b1b; }
+    body { background: var(--bg-page); font-family: 'Inter', sans-serif; color: var(--text-body); font-size: 13px; }
     .page-container { max-width: 1200px; margin: 0 auto; padding: 20px; }
     
     .header-bar { display: flex; justify-content: space-between; align-items: center; margin-bottom: 20px; }
-    .header-title h1 { font-size: 20px; font-weight: 800; color: var(--text-head); margin: 0; letter-spacing: -0.5px; }
+    .header-title h1 { font-size: 18px; font-weight: 700; color: #1e293b; margin: 0; letter-spacing: -0.5px; }
     
     /* CARDS */
-    .section-title { font-size: 13px; font-weight: 700; text-transform: uppercase; letter-spacing: 0.5px; color: #94a3b8; margin-bottom: 10px; display: flex; align-items: center; gap: 8px; margin-top: 30px; }
+    .section-title { font-size: 12px; font-weight: 700; text-transform: uppercase; letter-spacing: 0.5px; color: #94a3b8; margin-bottom: 12px; display: flex; align-items: center; gap: 8px; margin-top: 25px; }
     
-    .staff-grid { display: grid; grid-template-columns: repeat(auto-fill, minmax(260px, 1fr)); gap: 12px; margin-bottom: 20px; }
-    .staff-card { cursor: pointer; background: var(--card-bg); border: 1px solid var(--border); border-radius: 10px; padding: 12px 15px; display: flex; justify-content: space-between; align-items: center; transition: all 0.2s; box-shadow: 0 1px 2px rgba(0,0,0,0.05); }
+    .staff-grid { display: grid; grid-template-columns: repeat(auto-fill, minmax(220px, 1fr)); gap: 10px; margin-bottom: 20px; }
+    .staff-card { cursor: pointer; background: var(--card-bg); border: 1px solid var(--border); border-radius: 8px; padding: 10px 14px; display: flex; justify-content: space-between; align-items: center; transition: all 0.2s; box-shadow: 0 1px 2px rgba(0,0,0,0.02); }
     .staff-card:hover { transform: translateY(-1px); box-shadow: 0 4px 6px rgba(0,0,0,0.05); border-color: var(--primary); }
-    .staff-info h3 { margin: 0; font-size: 14px; font-weight: 600; color: var(--text-head); }
-    .staff-meta { font-size: 11px; color: #94a3b8; }
+    .staff-info h3 { margin: 0; font-size: 13px; font-weight: 600; color: #1e293b; }
+    .staff-meta { font-size: 11px; color: #94a3b8; margin-top: 2px; }
     
     .staff-input-group { display: flex; flex-direction: column; align-items: flex-end; gap: 2px; }
-    .staff-val { font-size: 16px; font-weight: 700; color: var(--text-head); }
+    .staff-val { font-size: 13px; font-weight: 600; color: var(--text-head); }
     
     /* UNIFIED CLOSING SECTION */
     .closing-section {
         background: white;
         border: 1px solid #e2e8f0;
-        border-radius: 16px;
-        padding: 20px;
+        border-radius: 12px;
+        padding: 15px;
         margin-bottom: 40px;
         display: grid;
-        grid-template-columns: 1fr 1fr 1fr 1.5fr; /* Encerramento wider */
-        gap: 20px;
+        grid-template-columns: 1fr 1fr 1fr 1.5fr;
+        gap: 15px;
         align-items: stretch;
     }
     @media (max-width: 900px) { .closing-section { grid-template-columns: 1fr 1fr; } }
     @media (max-width: 600px) { .closing-section { grid-template-columns: 1fr; } }
 
-    .closing-box { display: flex; flex-direction: column; gap: 8px; }
-    .kpi-label-sm { font-size: 12px; font-weight: 700; color: #64748b; text-transform: uppercase; letter-spacing: 0.5px; }
+    .closing-box { display: flex; flex-direction: column; gap: 6px; }
+    .kpi-label-sm { font-size: 11px; font-weight: 600; color: #64748b; text-transform: uppercase; letter-spacing: 0.5px; }
 
     .kpi-input-box {
         background: #f8fafc;
         border: 1px solid #e2e8f0; 
-        border-radius: 8px;
-        padding: 12px;
-        font-size: 16px;
-        font-weight: 600;
+        border-radius: 6px;
+        padding: 8px 10px;
+        font-size: 13px;
+        font-weight: 500;
         color: #1e293b;
         width: 100%;
         outline: none;
         transition: all 0.2s;
     }
-    .kpi-input-box:focus { border-color: #3b82f6; box-shadow: 0 0 0 3px rgba(59,130,246,0.1); background: white; }
+    .kpi-input-box:focus { border-color: #3b82f6; box-shadow: 0 0 0 2px rgba(59,130,246,0.1); background: white; }
 
     .report-area-sm {
         flex: 1;
@@ -640,10 +641,10 @@ export function DailyOperationsPage() {
     }
 
     return (
-        <div className="page-container">
+        <div className="page-container animate-fade-in">
             <style>{styles}</style>
 
-            <div className="header-bar">
+            <div className="header-bar animate-slide-up">
                 <div className="header-title">
                     <h1>Espelho Operacional</h1>
                     <div style={{ display: 'flex', alignItems: 'center', gap: '15px', marginTop: '10px' }}>
@@ -680,102 +681,125 @@ export function DailyOperationsPage() {
             {/* ROUTINE STATUS */}
             <RoutineStatusCards dailyData={dailyData} targets={targets} currentShift={currentShift} />
 
-            <div className="section-title">🏢 Bloco A: Saúde das Equipes (Gerenciar Presença)</div>
-            <div className="staff-grid">
-                {SECTORS_CONFIG.map(sector => {
-                    const meta = targets[sector.key] || 0;
+            {/* MAIN OPERATIONAL GRID */}
+            <div style={{ display: 'grid', gridTemplateColumns: '2fr 1fr', gap: '30px', alignItems: 'start' }}>
 
-                    // Calculate Present (Effective) Count
-                    // We need to iterate the log for this sector
-                    const logEntries = Object.entries(dailyData.attendance_log || {})
-                        .filter(([_, entry]) => entry.sector === sector.key);
+                {/* LEFT COL: STAFF */}
+                <div>
+                    <div className="section-title" style={{ marginTop: 0 }}>🏢 Bloco A: Saúde das Equipes (Gerenciar Presença)</div>
+                    <div className="staff-grid" style={{ gridTemplateColumns: 'repeat(auto-fill, minmax(200px, 1fr))' }}>
+                        {SECTORS_CONFIG.map(sector => {
+                            const meta = targets[sector.key] || 0;
+                            const logEntries = Object.entries(dailyData.attendance_log || {})
+                                .filter(([_, entry]) => entry.sector === sector.key);
+                            const presentCount = logEntries.reduce((acc, [_, entry]) => {
+                                const s = entry.status;
+                                return (!s || s === 'present') ? acc + 1 : acc;
+                            }, 0);
+                            const deficit = Math.max(0, meta - presentCount);
+                            const isComplete = deficit === 0;
 
-                    const presentCount = logEntries.reduce((acc, [_, entry]) => {
-                        const s = entry.status;
-                        return (!s || s === 'present') ? acc + 1 : acc;
-                    }, 0);
-
-                    // Logic: If Meta > 0, we check if we met the target.
-                    // Deficit = Meta - Present.
-                    // If Meta is 0, we assume it's valid (or no target set), but if there are absences explicitly marked, we can show them?
-                    // User request: "1 active, 1 vacation. Not complete." -> Implies Meta is higher (e.g. 2).
-                    // Or implies that simply having someone OUT makes it incomplete?
-                    // Let's stick to "Meta" as the truth. Check if user set Meta.
-
-                    const deficit = Math.max(0, meta - presentCount);
-                    const isComplete = deficit === 0;
-
-                    // Also count explicit "Faltas" for display if needed, but "Deficit" is more accurate for "Completeness"
-                    // If we don't have a Meta set (0), maybe fallback to "Anyone Absent?"
-                    // BUT user has "Meta: 2" (implied).
-
-                    return (
-                        <div key={sector.key} className="staff-card" onClick={() => openCheckIn(sector.key)} style={{ borderLeft: `4px solid ${isComplete ? '#16a34a' : '#ef4444'}` }}>
-                            <div className="staff-info">
-                                <h3>{sector.label}</h3>
-                                <div className="staff-meta">Meta: <b>{meta}</b> | Real: <b>{presentCount}</b></div>
-                            </div>
-                            <div className="staff-input-group">
-                                {!isComplete ? (
-                                    <div className="staff-val" style={{ color: '#ef4444' }}>
-                                        -{deficit} Pessoas
+                            return (
+                                <div key={sector.key} className="staff-card" onClick={() => dailyData.status !== 'closed' && openCheckIn(sector.key)} style={{ borderLeft: `4px solid ${isComplete ? '#16a34a' : '#ef4444'}`, opacity: dailyData.status === 'closed' ? 0.7 : 1, cursor: dailyData.status === 'closed' ? 'default' : 'pointer' }}>
+                                    <div className="staff-info">
+                                        <h3>{sector.label}</h3>
+                                        <div className="staff-meta">Meta: <b>{meta}</b> | Real: <b>{presentCount}</b></div>
                                     </div>
-                                ) : (
-                                    <div className="staff-val" style={{ color: '#16a34a', fontSize: '14px' }}>COMPLETO</div>
-                                )}
+                                    <div className="staff-input-group">
+                                        {!isComplete ? (
+                                            <div className="staff-val" style={{ color: '#ef4444' }}>
+                                                -{deficit} Pessoas
+                                            </div>
+                                        ) : (
+                                            <div className="staff-val" style={{ color: '#16a34a', fontSize: '14px' }}>COMPLETO</div>
+                                        )}
+                                    </div>
+                                </div>
+                            );
+                        })}
+                    </div>
+                </div>
+
+                {/* RIGHT COL: LOGISTICS & CLOSING */}
+                <div>
+                    <div className="section-title" style={{ marginTop: 0 }}>🔒 Logística & Encerramento</div>
+                    <div className="closing-section" style={{ display: 'flex', flexDirection: 'column', gap: '15px', padding: '20px' }}>
+
+                        <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: '10px' }}>
+                            <div className="closing-box">
+                                <label className="kpi-label-sm">Chegada Mercadorias</label>
+                                <input
+                                    type="time"
+                                    className="kpi-input-box"
+                                    value={dailyData.hora_chegada}
+                                    onChange={e => updateField('hora_chegada', e.target.value)}
+                                    disabled={dailyData.status === 'closed'}
+                                />
+                            </div>
+                            <div className="closing-box">
+                                <label className="kpi-label-sm">Fim Op.</label>
+                                <input
+                                    type="time"
+                                    className="kpi-input-box"
+                                    value={dailyData.hora_saida}
+                                    onChange={e => updateField('hora_saida', e.target.value)}
+                                    disabled={dailyData.status === 'closed'}
+                                />
                             </div>
                         </div>
-                    );
-                })}
-            </div>
 
-            <div className="section-title">🔒 Logística & Encerramento</div>
-            <div className="closing-section">
-                {/* 1. TONELAGEM */}
-                <div className="closing-box">
-                    <label className="kpi-label-sm">Tonelagem (Kg)</label>
-                    <input
-                        type="number"
-                        className="kpi-input-box"
-                        placeholder="0"
-                        value={dailyData.tonelagem}
-                        onChange={e => updateField('tonelagem', e.target.value)}
-                    />
-                </div>
+                        <div className="closing-box">
+                            <label className="kpi-label-sm">Tonelagem (Kg)</label>
+                            <input
+                                type="number"
+                                className="kpi-input-box"
+                                placeholder="0"
+                                value={dailyData.tonelagem}
+                                onChange={e => updateField('tonelagem', e.target.value)}
+                                disabled={dailyData.status === 'closed'}
+                            />
+                        </div>
 
-                {/* 2. CHEGADA */}
-                <div className="closing-box">
-                    <label className="kpi-label-sm">Início Op.</label>
-                    <input
-                        type="time"
-                        className="kpi-input-box"
-                        value={dailyData.hora_chegada}
-                        onChange={e => updateField('hora_chegada', e.target.value)}
-                    />
-                </div>
+                        <div className="closing-box">
+                            <label className="kpi-label-sm">Avaliação do Turno</label>
+                            <div style={{ display: 'flex', gap: '5px', padding: '5px 0' }}>
+                                {[1, 2, 3, 4, 5].map(star => (
+                                    <div
+                                        key={star}
+                                        onClick={() => dailyData.status !== 'closed' && updateField('rating', star)}
+                                        style={{ cursor: dailyData.status === 'closed' ? 'default' : 'pointer', transform: dailyData.rating >= star ? 'scale(1.1)' : 'scale(1)' }}
+                                    >
+                                        <IconStar fill={dailyData.rating >= star} />
+                                    </div>
+                                ))}
+                            </div>
+                        </div>
 
-                {/* 3. SAÍDA */}
-                <div className="closing-box">
-                    <label className="kpi-label-sm">Fim Op.</label>
-                    <input
-                        type="time"
-                        className="kpi-input-box"
-                        value={dailyData.hora_saida}
-                        onChange={e => updateField('hora_saida', e.target.value)}
-                    />
-                </div>
+                        <div className="closing-box">
+                            <textarea
+                                className="report-area-sm"
+                                value={dailyData.relatorio_lider}
+                                onChange={e => updateField('relatorio_lider', e.target.value)}
+                                placeholder="Resumo do dia / Ocorrências..."
+                                rows={4}
+                                disabled={dailyData.status === 'closed'}
+                            />
 
-                {/* 4. ENCERRAMENTO */}
-                <div className="closing-box">
-                    <textarea
-                        className="report-area-sm"
-                        value={dailyData.relatorio_lider}
-                        onChange={e => updateField('relatorio_lider', e.target.value)}
-                        placeholder="Resumo do dia / Ocorrências..."
-                    />
-                    <button className="btn-finish-sm" onClick={handleFinishDay}>
-                        Encerrar Diário
-                    </button>
+                            {dailyData.status === 'closed' ? (
+                                <div style={{
+                                    background: '#f1f5f9', color: '#64748b', padding: '12px',
+                                    borderRadius: '8px', textAlign: 'center', fontWeight: '700',
+                                    textTransform: 'uppercase', fontSize: '12px', letterSpacing: '1px'
+                                }}>
+                                    🔒 Turno Encerrado
+                                </div>
+                            ) : (
+                                <button className="btn-finish-sm" onClick={handleFinishDay}>
+                                    Encerrar Diário
+                                </button>
+                            )}
+                        </div>
+                    </div>
                 </div>
             </div>
 

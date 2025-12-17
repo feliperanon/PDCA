@@ -35,7 +35,7 @@ export function Menu() {
           { to: "/", label: "Início" },
           { to: "/pdca/novo", label: "Novo PDCA" },
           { to: "/dashboard", label: "Dashboard" },
-          { to: "/banco-de-dados", label: "Banco de Dados" },
+          { to: "/relatorios", label: "Relatórios" },
           { to: "/cadastro", label: "Cadastros" },
           { to: "/operacoes", label: "Diário Op." },
           { to: "/diario", label: "Espelho Op." },
@@ -48,14 +48,14 @@ export function Menu() {
             data-discover="true"
             style={({ isActive }) => ({
               textDecoration: 'none',
-              padding: '6px 16px',
-              borderRadius: '20px',
-              fontSize: '13px',
-              fontWeight: 600,
+              padding: '5px 12px',
+              borderRadius: '6px',
+              fontSize: '12px',
+              fontWeight: 500,
               color: isActive ? 'rgb(255, 255, 255)' : 'rgb(148, 163, 184)',
-              background: isActive ? 'rgb(59, 130, 246)' : 'transparent',
-              transition: '0.2s',
-              border: '1px solid transparent'
+              background: isActive ? 'rgba(59, 130, 246, 0.1)' : 'transparent',
+              border: isActive ? '1px solid rgba(59, 130, 246, 0.4)' : '1px solid transparent',
+              transition: '0.2s'
             })}
             end={link.to === "/"}
           >
